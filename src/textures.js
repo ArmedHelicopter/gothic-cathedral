@@ -59,33 +59,80 @@ export function createCathedralTextures(renderer) {
     return tex;
   }
 
-  /** Smooth 256x256 honed Carrara marble with subtle organic veining & zero pixelated blocks up close. */
+  /** Smooth 512x512 honed Carrara marble with layered mineral veining, subtle crystalline grain & micro ashlar joints. */
   function carraraMarble(label = 'carrara-marble', repeat = [1, 1], seed = 101) {
+    const S = 512;
+    const c = makeCanvas(S, S);
+    const ctx = c.getContext('2d');
+    const rand = mulberry32(seed);
+    ctx.fillStyle = '#edf1f8';
+    ctx.fillRect(0, 0, S, S);
+
+    // Soft cloudy mineral strata
+    for (let k = 0; k < 28; k++) {
+      ctx.strokeStyle = k % 3 === 0 ? 'rgba(98, 120, 164, 0.16)' : k % 3 === 1 ? 'rgba(138, 156, 194, 0.12)' : 'rgba(255, 255, 255, 0.50)';
+      ctx.lineWidth = 1.4 + rand() * 4.0;
+      ctx.beginPath();
+      const y0 = rand() * S;
+      ctx.moveTo(0, y0);
+      ctx.bezierCurveTo(S * 0.32, y0 + (rand() - 0.5) * 96, S * 0.68, y0 + (rand() - 0.5) * 96, S, y0 + (rand() - 0.5) * 28);
+      ctx.stroke();
+    }
+
+    // Fine feathery secondary veins
+    for (let k = 0; k < 18; k++) {
+      ctx.strokeStyle = 'rgba(72, 92, 134, 0.14)';
+      ctx.lineWidth = 0.8 + rand() * 1.1;
+      ctx.beginPath();
+      let x = rand() * S;
+      let y = rand() * S;
+      ctx.moveTo(x, y);
+      for (let s = 0; s < 5; s++) {
+        x += (rand() - 0.2) * 58;
+        y += (rand() - 0.5) * 44;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    for (let i = 0; i < 6500; i++) {
+      px(ctx, rand() * S, rand() * S, 1.5, 1.5, rand() > 0.45 ? 'rgba(210,220,240,0.28)' : 'rgba(255,255,255,0.42)');
+    }
+
+    // Crisp hairline ashlar stone masonry seams
+    ctx.strokeStyle = 'rgba(116, 136, 176, 0.26)';
+    ctx.lineWidth = 1.5;
+    for (let y = 0; y < S; y += 128) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(S, y);
+      ctx.stroke();
+      const off = ((y / 128) % 2) * 128;
+      for (let x = off; x < S; x += 256) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + 128);
+        ctx.stroke();
+      }
+    }
+
+    return register(label, c, { repeat, pixel: false, mip: true });
+  }
+
+  /** Matching 256x256 stone relief bump map for marble veins & ashlar chamfer joints. */
+  function carraraBump(label = 'carrara-bump', repeat = [1, 1], seed = 109) {
     const S = 256;
     const c = makeCanvas(S, S);
     const ctx = c.getContext('2d');
     const rand = mulberry32(seed);
-    ctx.fillStyle = '#eff3fa';
+    ctx.fillStyle = 'rgb(142,142,142)';
     ctx.fillRect(0, 0, S, S);
-
-    // Subtle soft mineral veining + cloud variation
-    for (let k = 0; k < 14; k++) {
-      ctx.strokeStyle = k % 2 === 0 ? 'rgba(136, 156, 194, 0.14)' : 'rgba(255, 255, 255, 0.45)';
-      ctx.lineWidth = 1.2 + rand() * 2.2;
-      ctx.beginPath();
-      const y0 = rand() * S;
-      ctx.moveTo(0, y0);
-      ctx.bezierCurveTo(S * 0.35, y0 + (rand() - 0.5) * 44, S * 0.65, y0 + (rand() - 0.5) * 44, S, y0);
-      ctx.stroke();
+    for (let i = 0; i < 4000; i++) {
+      const g = Math.floor(126 + rand() * 28);
+      px(ctx, rand() * S, rand() * S, 1.5, 1.5, `rgb(${g},${g},${g})`);
     }
-
-    for (let i = 0; i < 2400; i++) {
-      px(ctx, rand() * S, rand() * S, 1.5, 1.5, rand() > 0.5 ? 'rgba(220,228,244,0.32)' : 'rgba(255,255,255,0.4)');
-    }
-
-    // Fine hairline architectural ashlar courses
-    ctx.strokeStyle = 'rgba(138, 158, 194, 0.22)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgb(76,76,76)';
+    ctx.lineWidth = 2;
     for (let y = 0; y < S; y += 64) {
       ctx.beginPath();
       ctx.moveTo(0, y);
@@ -99,8 +146,7 @@ export function createCathedralTextures(renderer) {
         ctx.stroke();
       }
     }
-
-    return register(label, c, { repeat, pixel: false, mip: true });
+    return register(label, c, { srgb: false, repeat, pixel: false, mip: true });
   }
 
   /** Crisp 64x64 honed obsidian-slate with clear block seams & silver-navy rim highlights. */
@@ -125,35 +171,36 @@ export function createCathedralTextures(renderer) {
     return register(label, c, { repeat, pixel: true, mip: true });
   }
 
-  /** Fine 128x128 honed Prussian-sapphire limestone ashlar (quiet Minimalist Gothic wall planes, no chunky subway brick). */
+  /** Sculpted 256x256 deep Prussian-navy Gothic ashlar stone with crisp mortar relief & subtle specular mineral flecks. */
   function navyAshlar(label = 'navy-ashlar', repeat = [1, 1], seed = 303) {
-    const S = 128;
+    const S = 256;
     const c = makeCanvas(S, S);
     const ctx = c.getContext('2d');
     const rand = mulberry32(seed);
-    px(ctx, 0, 0, S, S, '#152c5c');
+    px(ctx, 0, 0, S, S, '#182f62');
     const rows = 4;
     const rh = S / rows;
-    const cw = 64;
+    const cw = 128;
     for (let r = 0; r < rows; r++) {
-      const off = (r % 2) * 32;
+      const off = (r % 2) * 64;
       for (let sx = -cw; sx < S; sx += cw) {
         const x = sx + off;
         const y = r * rh;
-        const d = Math.floor((rand() - 0.5) * 10);
-        const rr = Math.max(14, Math.min(48, 22 + d));
-        const gg = Math.max(32, Math.min(84, 48 + d));
-        const bb = Math.max(72, Math.min(148, 102 + d));
+        const d = Math.floor((rand() - 0.5) * 14);
+        const rr = Math.max(20, Math.min(62, 32 + d));
+        const gg = Math.max(46, Math.min(104, 66 + d));
+        const bb = Math.max(96, Math.min(176, 134 + d));
         ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-        ctx.fillRect(x + 1, y + 1, cw - 2, rh - 2);
-        ctx.fillStyle = 'rgba(196, 222, 255, 0.08)';
-        ctx.fillRect(x + 1, y + 1, cw - 2, 1);
-        ctx.fillStyle = 'rgba(7, 14, 34, 0.24)';
-        ctx.fillRect(x + 1, y + rh - 1, cw - 2, 1);
+        ctx.fillRect(x + 2, y + 2, cw - 4, rh - 4);
+        ctx.fillStyle = 'rgba(186, 218, 255, 0.16)';
+        ctx.fillRect(x + 2, y + 2, cw - 4, 2);
+        ctx.fillRect(x + 2, y + 2, 2, rh - 4);
+        ctx.fillStyle = 'rgba(6, 12, 30, 0.36)';
+        ctx.fillRect(x + 2, y + rh - 3, cw - 4, 3);
       }
     }
-    for (let i = 0; i < 1600; i++) {
-      px(ctx, rand() * S, rand() * S, 1, 1, rand() > 0.5 ? 'rgba(180,210,255,0.05)' : 'rgba(6,12,28,0.08)');
+    for (let i = 0; i < 4200; i++) {
+      px(ctx, rand() * S, rand() * S, 1.5, 1.5, rand() > 0.5 ? 'rgba(190,218,255,0.08)' : 'rgba(6,12,30,0.12)');
     }
     return register(label, c, { repeat, pixel: false, mip: true });
   }
@@ -230,43 +277,117 @@ export function createCathedralTextures(renderer) {
     };
   }
 
-  /** Crisp 256x256 polished Gothic sapphire-marble inlaid floor tile (antialiased diagonal borders, zero stairstep pixels). */
-  function naveInlayFloor(label = 'nave-inlay-floor', repeat = [5, 11]) {
-    const S = 256;
+  /** Crisp 512x512 inlaid Cosmatesque dark-navy & Carrara veined marble floor tile (rich stone luster, zero neon lines). */
+  function naveInlayFloor(label = 'nave-inlay-floor', repeat = [8, 16]) {
+    const S = 512;
     const c = makeCanvas(S, S);
     const ctx = c.getContext('2d');
     const rand = mulberry32(404);
-    ctx.fillStyle = '#131d34';
+    ctx.fillStyle = '#121f3d';
     ctx.fillRect(0, 0, S, S);
-    for (let i = 0; i < 3200; i++) {
-      px(ctx, rand() * S, rand() * S, 1.5, 1.5, rand() > 0.5 ? '#1b2847' : '#0f172b');
+    for (let i = 0; i < 9500; i++) {
+      px(ctx, rand() * S, rand() * S, 1.5, 1.5, rand() > 0.5 ? '#1a2c54' : '#0e1832');
     }
-    ctx.strokeStyle = 'rgba(72, 102, 162, 0.55)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(4, 4, S - 8, S - 8);
+    // Soft marble floor veins
+    for (let k = 0; k < 12; k++) {
+      ctx.strokeStyle = 'rgba(148, 176, 224, 0.14)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      const y0 = rand() * S;
+      ctx.moveTo(0, y0);
+      ctx.bezierCurveTo(S * 0.35, y0 + (rand() - 0.5) * 70, S * 0.65, y0 + (rand() - 0.5) * 70, S, y0);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(72, 102, 162, 0.42)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(8, 8, S - 16, S - 16);
 
-    ctx.fillStyle = '#1b3469';
+    ctx.strokeStyle = 'rgba(196, 214, 245, 0.34)';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(28, 28, S - 56, S - 56);
+
+    ctx.fillStyle = '#182b5c';
     ctx.beginPath();
-    ctx.moveTo(S / 2, 34);
-    ctx.lineTo(S - 34, S / 2);
-    ctx.lineTo(S / 2, S - 34);
-    ctx.lineTo(34, S / 2);
+    ctx.moveTo(S / 2, 68);
+    ctx.lineTo(S - 68, S / 2);
+    ctx.lineTo(S / 2, S - 68);
+    ctx.lineTo(68, S / 2);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#6c92d4';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(138, 174, 232, 0.46)';
+    ctx.lineWidth = 3.5;
     ctx.stroke();
 
-    ctx.fillStyle = '#b4c9eb';
+    ctx.fillStyle = '#d4e0f6';
     ctx.beginPath();
-    ctx.moveTo(S / 2, S / 2 - 14);
-    ctx.lineTo(S / 2 + 14, S / 2);
-    ctx.lineTo(S / 2, S / 2 + 14);
-    ctx.lineTo(S / 2 - 14, S / 2);
+    ctx.moveTo(S / 2, S / 2 - 26);
+    ctx.lineTo(S / 2 + 26, S / 2);
+    ctx.lineTo(S / 2, S / 2 + 26);
+    ctx.lineTo(S / 2 - 26, S / 2);
     ctx.closePath();
     ctx.fill();
 
     return register(label, c, { repeat, pixel: false, mip: true });
+  }
+
+  /** 512x512 Marble Compass-Rose Medallion placed directly beneath the Spiral Staircase well. */
+  function wellMedallionTex(label = 'well-medallion') {
+    const S = 512;
+    const c = makeCanvas(S, S);
+    const ctx = c.getContext('2d');
+    const cx = S / 2;
+    const cy = S / 2;
+
+    ctx.fillStyle = '#0d1832';
+    ctx.fillRect(0, 0, S, S);
+
+    const radial = ctx.createRadialGradient(cx, cy, 18, cx, cy, 245);
+    radial.addColorStop(0.0, '#162b5c');
+    radial.addColorStop(0.55, '#0e1b3c');
+    radial.addColorStop(1.0, '#091126');
+    ctx.fillStyle = radial;
+    ctx.fillRect(0, 0, S, S);
+
+    for (const [r, w, col] of [
+      [240, 12, '#dce6f8'],
+      [222, 4, '#5a82c8'],
+      [182, 8, '#d4e0f6'],
+      [112, 4, '#7aa4ea'],
+    ]) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 16-point gothic architectural star
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(a);
+      ctx.fillStyle = i % 2 === 0 ? '#e8effc' : '#264b94';
+      ctx.beginPath();
+      ctx.moveTo(0, -34);
+      ctx.lineTo(12, -118);
+      ctx.lineTo(0, i % 2 === 0 ? -176 : -146);
+      ctx.lineTo(-12, -118);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = '#eef4ff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0e204c';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    return register(label, c, { wrap: false, pixel: false, mip: true });
   }
 
   function linenCloth(label = 'linen-cloth') {
@@ -301,105 +422,168 @@ export function createCathedralTextures(renderer) {
   }
 
   /**
-   * Painterly unfinished chiaroscuro oil & charcoal study on raw linen canvas:
-   * - Sweeping charcoal construction rays & compass tracery circles
-   * - Rich tonal Prussian-navy colonnade arches & illuminated rose study with visible impasto palette strokes
+   * Sovereign Chiaroscuro Oil Masterpiece (1024x1280):
+   * - Rich atmospheric cathedral nave oil painting with soaring ribbed vaults, glowing astral rose,
+   *   perspective marble colonnades & golden-lit nave steps blending softly into an unfinished top-left chalk sketch
    */
   function unfinishedCanvasTex(label = 'unfinished-canvas') {
-    const W = 512;
-    const H = 640;
+    const W = 768;
+    const H = 1024;
     const c = makeCanvas(W, H);
     const ctx = c.getContext('2d');
     const rand = mulberry32(606);
 
-    // Primed warm-cool raw linen canvas ground
-    ctx.fillStyle = '#e7ecf5';
+    // Rich nocturnal Prussian-blue & warm-amber oil atmospheric ground
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0.0, '#071026');
+    sky.addColorStop(0.28, '#102452');
+    sky.addColorStop(0.54, '#24488c');
+    sky.addColorStop(0.80, '#132856');
+    sky.addColorStop(1.0, '#060c1d');
+    ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
-    for (let i = 0; i < 9500; i++) {
-      px(ctx, rand() * W, rand() * H, 2, 2, rand() > 0.5 ? '#dce2ee' : '#f4f7fc');
+
+    // Radiating warm-ivory & pale-gold sanctuary glow behind altar colonnade
+    const vx = W * 0.52;
+    const vy = H * 0.44;
+    const sanctuaryGlow = ctx.createRadialGradient(vx, vy, 12, vx, vy, W * 0.62);
+    sanctuaryGlow.addColorStop(0.0, 'rgba(255, 248, 224, 0.96)');
+    sanctuaryGlow.addColorStop(0.18, 'rgba(252, 224, 166, 0.78)');
+    sanctuaryGlow.addColorStop(0.42, 'rgba(110, 158, 232, 0.42)');
+    sanctuaryGlow.addColorStop(0.76, 'rgba(18, 42, 98, 0.18)');
+    sanctuaryGlow.addColorStop(1.0, 'rgba(6, 12, 30, 0.0)');
+    ctx.fillStyle = sanctuaryGlow;
+    ctx.fillRect(0, 0, W, H);
+
+    // Fine painted canvas texture & oil glaze scumbles
+    for (let i = 0; i < 14000; i++) {
+      px(
+        ctx,
+        rand() * W,
+        rand() * H,
+        2,
+        2,
+        rand() > 0.52 ? 'rgba(255,244,214,0.06)' : 'rgba(5,12,28,0.11)'
+      );
     }
 
-    // Charcoal golden-ratio construction lines & compass rose rings
-    const vx = W * 0.42;
-    const vy = H * 0.36;
-    ctx.strokeStyle = 'rgba(20, 36, 76, 0.36)';
-    ctx.lineWidth = 1.4;
-    for (let i = 0; i <= 11; i++) {
-      ctx.beginPath();
-      ctx.moveTo(vx, vy);
-      ctx.lineTo(W * (0.20 + i * 0.075), H);
-      ctx.stroke();
-    }
-    for (const r of [68, 108, 134]) {
-      ctx.beginPath();
-      ctx.arc(W * 0.68, H * 0.44, r, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    // Painterly navy-indigo chiaroscuro wash across lower-right unfinished composition
-    const deepWash = ctx.createRadialGradient(W * 0.66, H * 0.66, 20, W * 0.66, H * 0.66, 240);
-    deepWash.addColorStop(0.0, 'rgba(225, 238, 255, 0.35)');
-    deepWash.addColorStop(0.45, 'rgba(34, 66, 132, 0.68)');
-    deepWash.addColorStop(0.85, 'rgba(11, 24, 56, 0.86)');
-    deepWash.addColorStop(1.0, 'rgba(18, 36, 78, 0.20)');
-    ctx.fillStyle = deepWash;
-    ctx.fillRect(W * 0.30, H * 0.32, W * 0.68, H * 0.66);
-
-    // Radiating unfinished stained rose medallion upper-right
+    // Intricate painted rose-window tracery high in background apse
     ctx.save();
-    ctx.translate(W * 0.68, H * 0.54);
-    for (let p = 0; p < 8; p++) {
-      ctx.rotate(Math.PI / 4);
-      ctx.fillStyle = p % 2 === 0 ? 'rgba(220, 234, 255, 0.62)' : 'rgba(28, 56, 114, 0.72)';
+    ctx.translate(vx, H * 0.25);
+    for (let p = 0; p < 16; p++) {
+      const a = (p / 16) * Math.PI * 2;
+      ctx.save();
+      ctx.rotate(a);
+      ctx.fillStyle = p % 2 === 0 ? 'rgba(255, 242, 208, 0.58)' : 'rgba(66, 118, 214, 0.52)';
       ctx.beginPath();
-      ctx.moveTo(0, -14);
-      ctx.quadraticCurveTo(18, -48, 0, -78);
-      ctx.quadraticCurveTo(-18, -48, 0, -14);
+      ctx.moveTo(0, -18);
+      ctx.quadraticCurveTo(14, -68, 0, -96);
+      ctx.quadraticCurveTo(-14, -68, 0, -18);
       ctx.fill();
+      ctx.restore();
     }
+    ctx.strokeStyle = 'rgba(255, 238, 198, 0.65)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 102, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
 
-    // Gothic pointed sanctuary colonnade emerging out of ink wash + light puddle on floor
-    for (let bay = 0; bay < 3; bay++) {
-      const bx = W * (0.44 + bay * 0.145);
-      const w = 54 - bay * 8;
-      const topY = H * (0.48 + bay * 0.03);
-      const botY = H * 0.90 - bay * 12;
+    // Sweeping Perspective Gothic Vault Ribs & Receding Clustered Nave Bays (5 nested vaulted bays!)
+    for (let d = 0; d < 5; d++) {
+      const t = d / 5;
+      const halfSpan = THREE.MathUtils ? 0 : 0; // local math
+      const sw = 320 * Math.pow(0.68, d);
+      const springY = H * (0.38 + t * 0.06);
+      const apexY = H * (0.08 + t * 0.22);
+      const floorY = H * (0.94 - t * 0.24);
 
-      const archGrad = ctx.createLinearGradient(bx, topY, bx, botY);
-      archGrad.addColorStop(0, 'rgba(232, 242, 255, 0.78)');
-      archGrad.addColorStop(0.45, 'rgba(38, 72, 138, 0.65)');
-      archGrad.addColorStop(1, 'rgba(10, 22, 50, 0.86)');
-      ctx.fillStyle = archGrad;
+      // Left & right clustered painted piers
+      for (const s of [-1, 1]) {
+        const pxX = vx + s * sw;
+        const colGrad = ctx.createLinearGradient(pxX - 18, 0, pxX + 18, 0);
+        colGrad.addColorStop(0.0, 'rgba(10, 22, 52, 0.92)');
+        colGrad.addColorStop(0.5, s < 0 ? 'rgba(220, 232, 252, 0.72)' : 'rgba(255, 232, 184, 0.76)');
+        colGrad.addColorStop(1.0, 'rgba(12, 26, 58, 0.92)');
+        ctx.fillStyle = colGrad;
+        ctx.fillRect(pxX - (16 - d * 2), springY, 32 - d * 4, floorY - springY);
+      }
+
+      // Pointed gothic vault rib curving across nave bay
+      ctx.strokeStyle = `rgba(248, 230, 188, ${0.58 - t * 0.12})`;
+      ctx.lineWidth = 4.2 - d * 0.5;
       ctx.beginPath();
-      ctx.moveTo(bx, botY);
-      ctx.lineTo(bx, topY + 34);
-      ctx.quadraticCurveTo(bx + w * 0.5, topY - 14, bx + w, topY + 34);
-      ctx.lineTo(bx + w, botY);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.strokeStyle = 'rgba(218, 232, 255, 0.62)';
-      ctx.lineWidth = 2.0;
+      ctx.moveTo(vx - sw, springY);
+      ctx.quadraticCurveTo(vx - sw * 0.55, apexY + 18, vx, apexY);
+      ctx.quadraticCurveTo(vx + sw * 0.55, apexY + 18, vx + sw, springY);
       ctx.stroke();
     }
 
-    // Rich palette-knife impasto white-silver light streaks & raw ink brush marks
-    for (let s = 0; s < 28; s++) {
-      const sx = W * (0.40 + rand() * 0.48);
-      const sy = H * (0.50 + rand() * 0.40);
-      ctx.strokeStyle = s % 3 === 0 ? 'rgba(248, 251, 255, 0.68)' : s % 3 === 1 ? 'rgba(98, 138, 212, 0.52)' : 'rgba(10, 20, 44, 0.58)';
-      ctx.lineWidth = 1.8 + rand() * 4.5;
+    // Checkered & Carpeted Perspective Floor Receding Into Warm Golden Sanctuary
+    const fGrad = ctx.createLinearGradient(0, H * 0.64, 0, H);
+    fGrad.addColorStop(0.0, 'rgba(255, 240, 198, 0.78)');
+    fGrad.addColorStop(0.32, 'rgba(54, 96, 174, 0.80)');
+    fGrad.addColorStop(1.0, 'rgba(6, 14, 34, 0.98)');
+    ctx.fillStyle = fGrad;
+    ctx.beginPath();
+    ctx.moveTo(vx - 54, H * 0.64);
+    ctx.lineTo(vx + 54, H * 0.64);
+    ctx.lineTo(W * 0.96, H * 0.98);
+    ctx.lineTo(W * 0.04, H * 0.98);
+    ctx.closePath();
+    ctx.fill();
+
+    // Subtle painted perspective floor tiles & royal runner carpet glaze
+    ctx.strokeStyle = 'rgba(246, 224, 174, 0.34)';
+    ctx.lineWidth = 1.6;
+    for (let r = 0; r < 10; r++) {
+      const f = r / 10;
+      const y = H * (0.66 + f * f * 0.31);
+      const wHalf = 48 + f * f * 290;
       ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(sx + 22 + rand() * 52, sy - 10 - rand() * 24);
+      ctx.moveTo(vx - wHalf, y);
+      ctx.lineTo(vx + wHalf, y);
       ctx.stroke();
     }
+    const carpetG = ctx.createLinearGradient(0, H * 0.64, 0, H);
+    carpetG.addColorStop(0.0, 'rgba(255, 226, 164, 0.56)');
+    carpetG.addColorStop(0.45, 'rgba(28, 62, 138, 0.85)');
+    carpetG.addColorStop(1.0, 'rgba(12, 28, 72, 0.96)');
+    ctx.fillStyle = carpetG;
+    ctx.beginPath();
+    ctx.moveTo(vx - 14, H * 0.64);
+    ctx.lineTo(vx + 14, H * 0.64);
+    ctx.lineTo(vx + 110, H * 0.98);
+    ctx.lineTo(vx - 110, H * 0.98);
+    ctx.closePath();
+    ctx.fill();
 
-    // Raw unpainted gesso margin border + artist proportion ticks
-    ctx.strokeStyle = 'rgba(22, 40, 82, 0.42)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(20, 20, W - 40, H - 40);
+    // Soft oil volumetric sun shafts slanting inside the painting itself
+    const beamG = ctx.createLinearGradient(W * 0.72, H * 0.14, W * 0.32, H * 0.78);
+    beamG.addColorStop(0.0, 'rgba(255, 246, 220, 0.28)');
+    beamG.addColorStop(0.55, 'rgba(180, 212, 255, 0.12)');
+    beamG.addColorStop(1.0, 'rgba(20, 44, 96, 0.0)');
+    ctx.fillStyle = beamG;
+    ctx.beginPath();
+    ctx.moveTo(W * 0.66, H * 0.12);
+    ctx.lineTo(W * 0.84, H * 0.18);
+    ctx.lineTo(W * 0.44, H * 0.86);
+    ctx.lineTo(W * 0.24, H * 0.78);
+    ctx.closePath();
+    ctx.fill();
+
+    // Unfinished upper-left primed linen edge blending organically beneath the corner veil
+    const gessoMask = ctx.createRadialGradient(W * 0.12, H * 0.14, 18, W * 0.14, H * 0.16, 210);
+    gessoMask.addColorStop(0.0, 'rgba(240, 244, 252, 0.94)');
+    gessoMask.addColorStop(0.60, 'rgba(218, 228, 244, 0.56)');
+    gessoMask.addColorStop(1.0, 'rgba(180, 200, 232, 0.0)');
+    ctx.fillStyle = gessoMask;
+    ctx.fillRect(0, 0, W * 0.48, H * 0.40);
+
+    // Subtle classic oil border filet
+    ctx.strokeStyle = 'rgba(234, 214, 172, 0.72)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(18, 18, W - 36, H - 36);
 
     return register(label, c, { wrap: false, pixel: false, mip: true });
   }
@@ -427,41 +611,60 @@ export function createCathedralTextures(renderer) {
     return register(label, c, { repeat: [2, 3], pixel: true, mip: true });
   }
 
-  /** Serene Cerulean-Azure Cathedral Leaded Stained Glass (tranquil Sainte-Chapelle azure sky gradient + delicate leadwork). */
+  /**
+   * Deep-Navy Cathedral Leaded Stained Glass (256x512):
+   * Dark nocturnal navy panes pierced by brilliant exterior morning daylight refracting along jewel veins & lead tracery.
+   */
   function lancetGlass(label = 'lancet-glass') {
-    const W = 128;
-    const H = 384;
+    const W = 256;
+    const H = 512;
     const albedo = makeCanvas(W, H);
     const emissive = makeCanvas(W, H);
 
     for (const [ctx, isEmissive] of [[albedo.getContext('2d'), false], [emissive.getContext('2d'), true]]) {
       const grad = ctx.createLinearGradient(0, 0, 0, H);
       if (isEmissive) {
-        grad.addColorStop(0.0, '#7eb4ff');
-        grad.addColorStop(0.32, '#4184f2');
-        grad.addColorStop(0.75, '#2558be');
-        grad.addColorStop(1.0, '#163884');
+        grad.addColorStop(0.0, '#629eff');
+        grad.addColorStop(0.28, '#285fd6');
+        grad.addColorStop(0.68, '#133688');
+        grad.addColorStop(1.0, '#091b4c');
       } else {
-        grad.addColorStop(0.0, '#8cc0ff');
-        grad.addColorStop(0.35, '#4688f0');
-        grad.addColorStop(0.80, '#2252b2');
-        grad.addColorStop(1.0, '#133172');
+        grad.addColorStop(0.0, '#2a56b8');
+        grad.addColorStop(0.35, '#112966');
+        grad.addColorStop(0.75, '#081538');
+        grad.addColorStop(1.0, '#050d24');
       }
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, W, H);
 
-      // Subtle translucent celestial panes with soft inner vertical halo
-      const centerHalo = ctx.createRadialGradient(W * 0.5, H * 0.38, 6, W * 0.5, H * 0.42, W * 0.65);
-      centerHalo.addColorStop(0, 'rgba(220, 240, 255, 0.42)');
-      centerHalo.addColorStop(0.65, 'rgba(130, 184, 255, 0.14)');
-      centerHalo.addColorStop(1, 'rgba(24, 62, 142, 0.0)');
-      ctx.fillStyle = centerHalo;
+      // Morning sun brilliance blazing through the stained navy glass upper-center spine
+      const sunHalo = ctx.createRadialGradient(W * 0.5, H * 0.34, 8, W * 0.5, H * 0.42, W * 0.72);
+      sunHalo.addColorStop(0.0, isEmissive ? 'rgba(210, 234, 255, 0.82)' : 'rgba(130, 180, 255, 0.46)');
+      sunHalo.addColorStop(0.45, isEmissive ? 'rgba(66, 134, 255, 0.42)' : 'rgba(42, 92, 200, 0.22)');
+      sunHalo.addColorStop(1.0, 'rgba(6, 16, 48, 0.0)');
+      ctx.fillStyle = sunHalo;
       ctx.fillRect(0, 0, W, H);
 
-      // Crisp dark navy-iron leaded rectangular & arched lancet mullions
-      ctx.strokeStyle = '#0c1630';
-      ctx.lineWidth = 2.5;
-      const rows = 9;
+      // Diamond quarry diaper pattern in deep navy shades
+      const dw = 32;
+      const dh = 48;
+      ctx.strokeStyle = '#040814';
+      ctx.lineWidth = 2.4;
+      for (let y = -dh; y <= H + dh; y += dh) {
+        for (let x = -dw; x <= W + dw; x += dw) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + dw, y + dh);
+          ctx.moveTo(x + dw, y);
+          ctx.lineTo(x, y + dh);
+          ctx.stroke();
+        }
+      }
+
+      // Heavy iron saddle bars & mullions
+      ctx.strokeStyle = '#03060f';
+      ctx.lineWidth = 4.5;
+      const rows = 8;
       for (let r = 0; r <= rows; r++) {
         const y = (r / rows) * H;
         ctx.beginPath();
@@ -469,26 +672,27 @@ export function createCathedralTextures(renderer) {
         ctx.lineTo(W, y);
         ctx.stroke();
       }
-      for (const x of [W * 0.25, W * 0.5, W * 0.75]) {
+      for (const x of [W * 0.5]) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, H);
         ctx.stroke();
       }
-      // Subtle frosted alabaster rosette diamond accents along center spine
-      ctx.fillStyle = 'rgba(232, 244, 255, 0.34)';
+
+      // Crisp jewel lozenge accents transmitted along central lancet spine
+      ctx.fillStyle = isEmissive ? 'rgba(182, 222, 255, 0.56)' : 'rgba(120, 174, 255, 0.35)';
       for (let r = 1; r < rows - 1; r++) {
         const y = ((r + 0.5) / rows) * H;
         ctx.beginPath();
-        ctx.moveTo(W * 0.5, y - 10);
-        ctx.lineTo(W * 0.5 + 8, y);
-        ctx.lineTo(W * 0.5, y + 10);
-        ctx.lineTo(W * 0.5 - 8, y);
+        ctx.moveTo(W * 0.5, y - 16);
+        ctx.lineTo(W * 0.5 + 14, y);
+        ctx.lineTo(W * 0.5, y + 16);
+        ctx.lineTo(W * 0.5 - 14, y);
         ctx.closePath();
         ctx.fill();
       }
-      ctx.lineWidth = 6;
-      ctx.strokeRect(3, 3, W - 6, H - 6);
+      ctx.lineWidth = 10;
+      ctx.strokeRect(5, 5, W - 10, H - 10);
     }
 
     return {
@@ -497,70 +701,74 @@ export function createCathedralTextures(renderer) {
     };
   }
 
-  /** Soft cerulean-azure stained-glass light-pool projection gobo for nave marble floors. */
+  /** Soft deep-navy stained-glass light-pool projection gobo for nave marble floors. */
   function lancetGoboTex(label = 'lancet-gobo') {
-    const W = 128;
-    const H = 256;
+    const W = 256;
+    const H = 512;
     const c = makeCanvas(W, H);
     const ctx = c.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
-    const g = ctx.createRadialGradient(W * 0.5, H * 0.52, 8, W * 0.5, H * 0.52, W * 0.55);
-    g.addColorStop(0.0, 'rgba(130, 194, 255, 0.85)');
-    g.addColorStop(0.55, 'rgba(60, 128, 242, 0.45)');
-    g.addColorStop(1.0, 'rgba(20, 60, 150, 0.0)');
+    const g = ctx.createRadialGradient(W * 0.5, H * 0.50, 12, W * 0.5, H * 0.50, W * 0.56);
+    g.addColorStop(0.0, 'rgba(92, 160, 255, 0.90)');
+    g.addColorStop(0.50, 'rgba(32, 86, 206, 0.48)');
+    g.addColorStop(1.0, 'rgba(8, 24, 72, 0.0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
-    // Subtle soft twin lancet light silhouette
-    ctx.fillStyle = 'rgba(195, 226, 255, 0.42)';
-    for (const bx of [W * 0.34, W * 0.66]) {
+    // Twin lancet mullions casting crisp mottled light bars
+    ctx.fillStyle = 'rgba(176, 218, 255, 0.52)';
+    for (const bx of [W * 0.32, W * 0.68]) {
       ctx.beginPath();
-      ctx.ellipse(bx, H * 0.52, 16, 72, 0, 0, Math.PI * 2);
+      ctx.ellipse(bx, H * 0.50, 28, 132, 0, 0, Math.PI * 2);
       ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(6, 14, 38, 0.58)';
+    for (let y = 84; y < H - 84; y += 64) {
+      ctx.fillRect(32, y, W - 64, 10);
     }
 
     return register(label, c, { wrap: false, pixel: false, mip: true });
   }
 
   function roseWindowGlass(label = 'rose-window') {
-    const S = 256;
+    const S = 512;
     const albedo = makeCanvas(S, S);
     const emissive = makeCanvas(S, S);
 
-    for (const ctx of [albedo.getContext('2d'), emissive.getContext('2d')]) {
-      ctx.fillStyle = '#0a142c';
+    for (const [ctx, isEm] of [[albedo.getContext('2d'), false], [emissive.getContext('2d'), true]]) {
+      ctx.fillStyle = '#050b1c';
       ctx.fillRect(0, 0, S, S);
       const cx = S / 2;
       const cy = S / 2;
 
-      ctx.strokeStyle = '#cfe0ff';
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = isEm ? '#6fa8ff' : '#3a66b8';
+      ctx.lineWidth = 10;
       ctx.beginPath();
-      ctx.arc(cx, cy, 112, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 224, 0, Math.PI * 2);
       ctx.stroke();
 
-      for (let i = 0; i < 12; i++) {
-        const ang = (i / 12) * Math.PI * 2;
+      for (let i = 0; i < 24; i++) {
+        const ang = (i / 24) * Math.PI * 2;
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(ang);
-        ctx.fillStyle = i % 2 === 0 ? '#d8e6ff' : '#2d569e';
+        ctx.fillStyle = i % 2 === 0 ? (isEm ? '#9ac4ff' : '#2f60c4') : '#102966';
         ctx.beginPath();
-        ctx.moveTo(0, -28);
-        ctx.lineTo(16, -84);
-        ctx.lineTo(0, -104);
-        ctx.lineTo(-16, -84);
+        ctx.moveTo(0, -48);
+        ctx.lineTo(18, -168);
+        ctx.lineTo(0, -212);
+        ctx.lineTo(-18, -168);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = '#0a0f1c';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#040814';
+        ctx.lineWidth = 4;
         ctx.stroke();
         ctx.restore();
       }
-      ctx.fillStyle = '#eef4ff';
+      ctx.fillStyle = isEm ? '#d8ecff' : '#6ea4f8';
       ctx.beginPath();
-      ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 38, 0, Math.PI * 2);
       ctx.fill();
     }
     return {
@@ -872,12 +1080,21 @@ export function createCathedralTextures(renderer) {
     return { count: registry.length, totalKB: Math.round(totalBytes / 1024), totalBytes };
   }
 
+  function uploadAllToGPU(r) {
+    if (!r) return;
+    for (let i = 0; i < registry.length; i++) {
+      r.initTexture(registry[i].texture);
+    }
+  }
+
   return {
     carraraMarble,
+    carraraBump,
     obsidianStone,
     navyAshlar,
     ceruleanCarpetTex,
     naveInlayFloor,
+    wellMedallionTex,
     linenCloth,
     unfinishedCanvasTex,
     gothicDoorWood,
@@ -887,6 +1104,7 @@ export function createCathedralTextures(renderer) {
     bokehDot,
     plaqueLabel,
     projectIcon,
+    uploadAllToGPU,
     getStats,
   };
 }

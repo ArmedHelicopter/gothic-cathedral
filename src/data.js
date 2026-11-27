@@ -16,13 +16,13 @@ export const CENTERPIECE = {
   id: 'unfinished-opus',
   index: '00',
   name: '未竟之作 · Unfinished Opus',
-  subtitle: 'Central Sanctuary Easel · Draped Canvas',
-  tag: 'IN PROGRESS · NEXT CHAPTER',
+  subtitle: 'Sovereign Sanctuary Easel · Draped Canvas',
+  tag: 'IN PROGRESS · SOVEREIGN OPUS',
   description:
-    '大殿正中尚未落笔完成的画布，以素白亚麻长布覆掩，仅留右下角未干的藏青透视底稿与画框木榫——象征仍在生长中的研究、工具与叙事实验，下一笔永远留待未来落下。',
+    '大殿正中神圣高台上的宏伟画布，于冷冽深邃的藏青穹窿之下独沐天光圣柱；素白亚麻帷幕斜掀一角，显露藏青与淡金勾勒的未竟底稿——象征仍在生长的科研、工程与叙事理想，静待落成之笔。',
   stack: ['OurSongs / 《收敛》', 'AI4S & Agent Systems', 'Procedural 3D'],
-  camPos: [2.2, 3.1, -6.2],
-  camTarget: [0.0, 2.95, -12.3],
+  camPos: [2.15, 2.85, -12.6],
+  camTarget: [0.0, 4.55, -20.5],
   url: 'https://github.com/ArmedHelicopter',
 };
 
@@ -34,7 +34,7 @@ export const PROJECTS = [
     subtitle: 'Every agent’s model. One place.',
     lang: 'Go',
     side: 'left',
-    bayZ: 9.6,
+    bayZ: 5.5,
     iconKind: 'magpie-real',
     hasRealIcon: true,
     description:
@@ -49,7 +49,7 @@ export const PROJECTS = [
     subtitle: 'Fail-Closed Account Isolation',
     lang: 'PowerShell / Swift',
     side: 'left',
-    bayZ: 4.8,
+    bayZ: 0.0,
     iconKind: 'claude-switcher-real',
     hasRealIcon: true,
     description:
@@ -64,7 +64,7 @@ export const PROJECTS = [
     subtitle: 'Unified Agent Memory Workspace',
     lang: 'Rust',
     side: 'left',
-    bayZ: 0.0,
+    bayZ: -5.5,
     iconKind: 'sivtr-real',
     hasRealIcon: true,
     description:
@@ -79,7 +79,7 @@ export const PROJECTS = [
     subtitle: 'Desktop GUI & Auto-Configurator',
     lang: 'Rust / Tauri',
     side: 'left',
-    bayZ: -4.8,
+    bayZ: -11.0,
     iconKind: 'easycliproxy-real',
     hasRealIcon: true,
     description:
@@ -94,7 +94,7 @@ export const PROJECTS = [
     subtitle: 'WHU 2.5D Interactive Diorama',
     lang: 'Three.js',
     side: 'left',
-    bayZ: -9.6,
+    bayZ: -16.0,
     iconKind: 'whu-archway-real',
     hasRealIcon: true,
     description:
@@ -109,7 +109,7 @@ export const PROJECTS = [
     subtitle: 'Separation-of-Powers for Research Agents',
     lang: 'Python',
     side: 'right',
-    bayZ: 9.6,
+    bayZ: 5.5,
     iconKind: 'research-loop-emblem',
     hasRealIcon: false,
     description:
@@ -124,7 +124,7 @@ export const PROJECTS = [
     subtitle: 'Deterministic AI4S Middleware',
     lang: 'TypeScript',
     side: 'right',
-    bayZ: 4.8,
+    bayZ: 0.0,
     iconKind: 'ai4s-gate-emblem',
     hasRealIcon: false,
     description:
@@ -139,7 +139,7 @@ export const PROJECTS = [
     subtitle: 'Block-Hankel MSSA Audio Restoration',
     lang: 'Python',
     side: 'right',
-    bayZ: 0.0,
+    bayZ: -5.5,
     iconKind: 'hankel-emblem',
     hasRealIcon: false,
     description:
@@ -154,7 +154,7 @@ export const PROJECTS = [
     subtitle: '1881 Tangxu Railway Scrollytelling',
     lang: 'HTML',
     side: 'right',
-    bayZ: -4.8,
+    bayZ: -11.0,
     iconKind: 'self-study-emblem',
     hasRealIcon: false,
     description:
@@ -169,7 +169,7 @@ export const PROJECTS = [
     subtitle: 'Browser PKCE Auth & Model Catalog',
     lang: 'JavaScript',
     side: 'right',
-    bayZ: -9.6,
+    bayZ: -16.0,
     iconKind: 'opencode-auth-emblem',
     hasRealIcon: false,
     description:

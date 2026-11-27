@@ -1,12 +1,12 @@
 :root {
-  --navy-deep: #060b18;
-  --navy-mid: #102044;
+  --navy-deep: #040814;
+  --navy-mid: #0d1d42;
   --navy-accent: #2c5298;
   --ink-white: #f2f5fc;
   --ink-silver: #b6c4df;
   --ink-muted: #7f94be;
-  --glass-bg: rgba(8, 16, 36, 0.72);
-  --glass-border: rgba(214, 228, 255, 0.22);
+  --glass-bg: rgba(5, 11, 26, 0.72);
+  --glass-border: rgba(204, 222, 255, 0.20);
   --font-sans: 'Inter', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
   --font-serif: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
@@ -25,7 +25,7 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 35%, #12244a 0%, #060b18 78%);
+  background: #040814;
   color: var(--ink-white);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -45,35 +45,99 @@ body {
   cursor: grabbing;
 }
 
+/* Stage 1: Real Wireframe Architectural Loading Overlay */
+#loading-overlay {
+  position: fixed;
+  left: 50%;
+  bottom: 42px;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+body[data-stage='loading'] #loading-overlay {
+  opacity: 1;
+}
+
+body[data-hide-ui='true'] #loading-overlay,
 body[data-hide-ui='true'] #cathedral-hud {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
-body[data-stage='intro'] #cathedral-hud {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(8px);
+.load-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(4, 8, 20, 0.76);
+  border: 1px solid rgba(182, 212, 255, 0.24);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: rgba(226, 238, 255, 0.94);
 }
 
+.load-bar-track {
+  width: 210px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(140, 178, 245, 0.18);
+  overflow: hidden;
+}
+
+.load-bar-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #4b84e8, #edf4ff);
+  transition: width 0.08s linear;
+}
+
+/* Stage 1 & Stage 2: instant hard hide so zero HUD bleeds over wireframe loading or FPV dive! */
+body[data-stage='loading'] #cathedral-hud,
+body[data-stage='dive'] #cathedral-hud {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: none;
+}
+
+/* Stage 3 HUD Visibility */
 #cathedral-hud {
   position: fixed;
   inset: 0;
   z-index: 10;
   pointer-events: none;
-  transition: opacity 0.7s ease, transform 0.7s ease;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+
+body[data-stage='explore'] #cathedral-hud {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .hud-topbar {
   position: absolute;
-  top: 18px;
-  left: 20px;
-  right: 20px;
+  top: 16px;
+  left: 18px;
+  right: 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .brand-pill,
@@ -81,17 +145,18 @@ body[data-stage='intro'] #cathedral-hud {
   pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 7px;
 }
 
 .brand-pill {
-  padding: 8px 14px;
+  padding: 7px 13px;
   border-radius: 999px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  font-size: 13px;
+  font-size: 12.5px;
   letter-spacing: 0.02em;
 }
 
@@ -99,8 +164,8 @@ body[data-stage='intro'] #cathedral-hud {
   width: 7px;
   height: 7px;
   border-radius: 1px;
-  background: #dceaff;
-  box-shadow: 0 0 8px rgba(160, 198, 255, 0.75);
+  background: #ffe9be;
+  box-shadow: 0 0 8px rgba(255, 224, 160, 0.8);
   flex-shrink: 0;
 }
 
@@ -122,16 +187,16 @@ body[data-stage='intro'] #cathedral-hud {
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-  padding: 8px 14px;
+  padding: 7px 12px;
   border-radius: 999px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   color: var(--ink-white);
-  font-size: 12.5px;
+  font-size: 12px;
   font-family: var(--font-sans);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.14s ease;
 }
 
 .pill-btn:hover {
@@ -142,9 +207,23 @@ body[data-stage='intro'] #cathedral-hud {
 
 .pill-btn.is-active {
   background: #f2f5fc;
-  color: #071024;
+  color: #060e20;
   border-color: #ffffff;
   font-weight: 600;
+}
+
+.controls-hint {
+  position: absolute;
+  left: 18px;
+  bottom: 68px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(5, 11, 26, 0.62);
+  border: 1px solid rgba(204, 222, 255, 0.16);
+  color: rgba(196, 214, 245, 0.82);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
 }
 
 .pins-layer {
@@ -164,8 +243,8 @@ body[data-stage='intro'] #cathedral-hud {
   gap: 5px;
   padding: 4px 10px 4px 7px;
   border-radius: 999px;
-  border: 1px solid rgba(214, 228, 255, 0.34);
-  background: rgba(8, 18, 42, 0.78);
+  border: 1px solid rgba(214, 228, 255, 0.32);
+  background: rgba(6, 13, 32, 0.76);
   color: var(--ink-white);
   font-family: var(--font-sans);
   font-size: 11.5px;
@@ -173,7 +252,7 @@ body[data-stage='intro'] #cathedral-hud {
   cursor: pointer;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 14px rgba(3, 10, 28, 0.45);
+  box-shadow: 0 4px 14px rgba(2, 6, 18, 0.55);
   transition: border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
 }
 
@@ -196,15 +275,15 @@ body[data-stage='intro'] #cathedral-hud {
 
 .exhibit-card {
   position: absolute;
-  top: 74px;
-  right: 20px;
+  top: 70px;
+  right: 18px;
   width: 340px;
-  max-width: calc(100vw - 40px);
+  max-width: calc(100vw - 36px);
   padding: 20px 20px 18px;
   border-radius: 14px;
-  background: rgba(8, 15, 34, 0.86);
-  border: 1px solid rgba(214, 228, 255, 0.26);
-  box-shadow: 0 18px 48px rgba(2, 6, 18, 0.55);
+  background: rgba(6, 12, 28, 0.88);
+  border: 1px solid rgba(214, 228, 255, 0.24);
+  box-shadow: 0 18px 48px rgba(2, 6, 18, 0.62);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   pointer-events: none;
@@ -347,13 +426,13 @@ body[data-stage='intro'] #cathedral-hud {
 .exhibit-dock {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  bottom: 16px;
   transform: translateX(-50%);
   max-width: calc(100vw - 32px);
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px;
+  gap: 5px;
+  padding: 5px 6px;
   border-radius: 999px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
@@ -368,13 +447,13 @@ body[data-stage='intro'] #cathedral-hud {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
+  gap: 5px;
+  padding: 5px 10px;
   border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--ink-silver);
-  font-size: 12px;
+  font-size: 11.5px;
   white-space: nowrap;
   transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
@@ -392,7 +471,7 @@ body[data-stage='intro'] #cathedral-hud {
 
 .chip-num {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
   opacity: 0.78;
 }
 
@@ -405,7 +484,7 @@ body[data-stage='intro'] #cathedral-hud {
   inset: 0;
   display: grid;
   place-items: center;
-  background: #060b18;
+  background: #040814;
   color: #f2f5fc;
   padding: 24px;
   z-index: 999;
@@ -415,6 +494,6 @@ body[data-stage='intro'] #cathedral-hud {
   max-width: 480px;
   padding: 24px;
   border-radius: 14px;
-  background: #0e1a36;
+  background: #0c1733;
   border: 1px solid rgba(214, 228, 255, 0.25);
 }

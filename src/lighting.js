@@ -1,268 +1,362 @@
 import * as THREE from 'three';
 
 /**
- * Independent Component: Pure Clear Celestial Sky Dome (Sapphire -> Cerulean -> Porcelain Horizon),
- * NaN-Proof Soft Cerulean-Azure Volumetric Shafts, Tranquil Interior Sanctuary Glow & Fine Silver Motes.
+ * Independent Component: Nocturnal Deep-Navy Sanctuary Lighting & Warm-Gold Sovereign Spotlight
+ * - Exterior morning sunlight streams exclusively through Deep-Navy stained glass -> cold volumetric God Rays
+ * - Central Sovereign Masterpiece bathes in an isolated Warm-Ivory/Pale-Gold beam creating monarchial chiaroscuro
+ * - Split async `buildEnvironment()` + `buildLightsAndRays()` for genuine loading progress
  */
 export function createLightingComponent(scene, renderer, mats) {
   const group = new THREE.Group();
   group.name = 'lighting';
 
-  // Clear luminous celestial PMREM reflection map (white/azure horizon + deep sapphire zenith)
-  const pmremGen = new THREE.PMREMGenerator(renderer);
-  pmremGen.compileEquirectangularShader();
-  const envScene = new THREE.Scene();
-  const envMat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    vertexShader: `
-      varying vec3 vDir;
-      void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-    `,
-    fragmentShader: `
-      varying vec3 vDir;
-      void main() {
-        vec3 d = normalize(vDir);
-        float h = d.y;
-        vec3 col = mix(vec3(0.46, 0.64, 0.88), vec3(0.84, 0.91, 0.99), smoothstep(-0.25, 0.04, h));
-        col = mix(col, vec3(0.18, 0.42, 0.78), smoothstep(0.04, 0.38, h));
-        col = mix(col, vec3(0.06, 0.16, 0.40), smoothstep(0.38, 0.92, h));
-        vec3 sunDir = normalize(vec3(0.45, 0.56, -0.58));
-        float sd = max(0.0001, dot(d, sunDir));
-        col += vec3(0.92, 0.96, 1.0) * (pow(sd, 14.0) * 0.45 + pow(sd, 96.0) * 1.15);
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
-  });
-  const envSphere = new THREE.Mesh(new THREE.SphereGeometry(16, 20, 14), envMat);
-  envScene.add(envSphere);
-  const envRT = pmremGen.fromScene(envScene, 0.035);
-  envSphere.geometry.dispose();
-  envMat.dispose();
-  pmremGen.dispose();
-  scene.environment = envRT.texture;
-  scene.environmentIntensity = 0.76;
+  scene.background = new THREE.Color('#040917');
+  const BASE_FOG_DENSITY = 0.0078;
+  scene.fog = new THREE.FogExp2('#061028', BASE_FOG_DENSITY);
 
-  // Clear luminous twilight-azure celestial sky dome (strict Navy & Porcelain-White aesthetic)
-  const skyUniforms = {
-    uZenith: { value: new THREE.Color('#0c2252') },
-    uMid: { value: new THREE.Color('#2d62bd') },
-    uHorizon: { value: new THREE.Color('#dceafc') },
-    uGlow: { value: new THREE.Color('#eff6ff') },
-    uLinearOutput: { value: 1.0 },
-  };
-  const skyDome = new THREE.Mesh(
-    new THREE.SphereGeometry(180, 28, 18),
-    new THREE.ShaderMaterial({
+  let envRT = null;
+  let keyLight = null;
+  let hemiLight = null;
+  let sovereignSpot = null;
+  let sovereignWarmFill = null;
+  let sovereignConeMat = null;
+  let beamMat = null;
+  let navyDust = null;
+  let goldDust = null;
+  const vaultBounceLights = [];
+  const navyDustBase = [];
+  const goldDustBase = [];
+  const beamMeshes = [];
+
+  function buildEnvironment() {
+    const pmremGen = new THREE.PMREMGenerator(renderer);
+    pmremGen.compileEquirectangularShader();
+    const envScene = new THREE.Scene();
+    const envMat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
-      depthWrite: false,
-      uniforms: skyUniforms,
       vertexShader: `
-        varying vec3 vWp;
+        varying vec3 vDir;
+        void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+      `,
+      fragmentShader: `
+        varying vec3 vDir;
         void main() {
+          vec3 d = normalize(vDir);
+          float h = clamp(d.y * 0.5 + 0.5, 0.0, 1.0);
+          vec3 col = mix(vec3(0.04, 0.09, 0.22), vec3(0.11, 0.24, 0.52), smoothstep(0.12, 0.65, h));
+          col = mix(col, vec3(0.22, 0.44, 0.82), smoothstep(0.65, 0.96, h));
+          vec3 eastWin = normalize(vec3(0.88, 0.36, 0.12));
+          float ew = max(0.0001, dot(d, eastWin));
+          col += vec3(0.45, 0.72, 1.0) * pow(ew, 10.0) * 1.15;
+          vec3 spotDir = normalize(vec3(0.0, 0.85, -0.52));
+          float sw = max(0.0001, dot(d, spotDir));
+          col += vec3(1.0, 0.90, 0.72) * pow(sw, 24.0) * 1.15;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    });
+    const envSphere = new THREE.Mesh(new THREE.SphereGeometry(16, 20, 14), envMat);
+    envScene.add(envSphere);
+    envRT = pmremGen.fromScene(envScene, 0.04);
+    envSphere.geometry.dispose();
+    envMat.dispose();
+    pmremGen.dispose();
+
+    scene.environment = envRT.texture;
+    scene.environmentIntensity = 0.58;
+  }
+
+  function buildLightsAndRays() {
+    // 1. Morning Sunlight Filtered Strictly Through Deep-Navy Stained Glass (Pierces East Lancets!)
+    keyLight = new THREE.DirectionalLight('#3578f6', 3.05);
+    keyLight.position.set(24.0, 13.6, 4.5);
+    keyLight.target.position.set(-4.0, 1.5, -2.0);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 2;
+    keyLight.shadow.camera.far = 76;
+    keyLight.shadow.camera.left = -32;
+    keyLight.shadow.camera.right = 32;
+    keyLight.shadow.camera.top = 28;
+    keyLight.shadow.camera.bottom = -28;
+    keyLight.shadow.bias = -0.00045;
+    keyLight.shadow.normalBias = 0.036;
+    keyLight.shadow.radius = 2.2;
+    group.add(keyLight, keyLight.target);
+
+    // Sculptural cold deep-navy indirect vault bounce so EVERY stone arch, wall ashlar, and ceiling web reads as 3D stone!
+    hemiLight = new THREE.HemisphereLight('#2860c8', '#09142c', 0.82);
+    group.add(hemiLight);
+
+    for (const [lx, ly, lz, inten, dist] of [
+      [0.0, 17.5, 20.0, 22.0, 32],
+      [0.0, 17.8, 6.0, 18.0, 34],
+      [0.0, 17.8, -8.0, 18.0, 34],
+      [0.0, 15.0, -21.0, 14.0, 24],
+    ]) {
+      const vl = new THREE.PointLight('#2b66df', inten, dist, 1.12);
+      vl.position.set(lx, ly, lz);
+      vl.userData.baseIntensity = inten;
+      group.add(vl);
+      vaultBounceLights.push(vl);
+    }
+
+    // Subtle museum vitrine & under-gallery aisle bounce illuminating pedestals & 2F marble fascia soffit
+    for (const pSide of [-1, 1]) {
+      for (const pz of [2.0, -10.0]) {
+        const vitrineWash = new THREE.PointLight('#6aa4ff', 5.4, 16.0, 1.35);
+        vitrineWash.position.set(pSide * 4.0, 4.4, pz);
+        vitrineWash.userData.baseIntensity = 5.4;
+        group.add(vitrineWash);
+        vaultBounceLights.push(vitrineWash);
+      }
+      const aisleWash = new THREE.PointLight('#3b78f0', 8.5, 22.0, 1.15);
+      aisleWash.position.set(pSide * 11.2, 5.2, -3.5);
+      aisleWash.userData.baseIntensity = 8.5;
+      group.add(aisleWash);
+      vaultBounceLights.push(aisleWash);
+    }
+
+    // 2. Sovereign Masterpiece Dedicated Warm-Ivory / Pale-Gold Sacred Spotlight (Vault Oculus -> Painting)
+    sovereignSpot = new THREE.SpotLight('#fff0cc', 175.0, 38.0, 0.21, 0.56, 1.12);
+    sovereignSpot.position.set(0.0, 23.0, -17.2);
+    sovereignSpot.target.position.set(0.0, 4.45, -20.5);
+    sovereignSpot.castShadow = true;
+    sovereignSpot.shadow.mapSize.set(1024, 1024);
+    sovereignSpot.shadow.camera.near = 4;
+    sovereignSpot.shadow.camera.far = 36;
+    sovereignSpot.shadow.bias = -0.0004;
+    sovereignSpot.shadow.normalBias = 0.028;
+    group.add(sovereignSpot, sovereignSpot.target);
+
+    sovereignWarmFill = new THREE.PointLight('#ffe4b5', 17.5, 16.0, 1.25);
+    sovereignWarmFill.position.set(0.0, 4.5, -16.8);
+    group.add(sovereignWarmFill);
+
+    // Volumetric Conical Pale-Gold Shaft Descending Exclusively from Vault Oculus Above Painting (zero spill)
+    const beamTop = new THREE.Vector3(0.0, 23.0, -17.2);
+    const beamBot = new THREE.Vector3(0.0, 1.4, -20.5);
+    const beamVec = beamBot.clone().sub(beamTop);
+    const beamLen = beamVec.length();
+    const beamMid = beamTop.clone().addScaledVector(beamVec, 0.5);
+    const coneGeo = new THREE.CylinderGeometry(0.58, 3.05, beamLen, 36, 1, true);
+
+    sovereignConeMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uColor: { value: new THREE.Color('#ffebc4') },
+        uOpacity: { value: 0.11 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vNormalW;
+        varying vec3 vViewDirW;
+        void main() {
+          vUv = uv;
           vec4 wp = modelMatrix * vec4(position, 1.0);
-          vWp = wp.xyz;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          vViewDirW = normalize(cameraPosition - wp.xyz);
           gl_Position = projectionMatrix * viewMatrix * wp;
         }
       `,
       fragmentShader: `
-        uniform vec3 uZenith;
-        uniform vec3 uMid;
-        uniform vec3 uHorizon;
-        uniform vec3 uGlow;
-        uniform float uLinearOutput;
-        varying vec3 vWp;
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        varying vec2 vUv;
+        varying vec3 vNormalW;
+        varying vec3 vViewDirW;
         void main() {
-          vec3 d = normalize(vWp);
-          float h = d.y;
-          vec3 col = mix(vec3(0.76, 0.85, 0.96), uHorizon, smoothstep(-0.22, 0.02, h));
-          col = mix(col, uMid, smoothstep(0.02, 0.34, h));
-          col = mix(col, uZenith, smoothstep(0.34, 0.88, h));
-          vec3 sunDir = normalize(vec3(0.45, 0.54, -0.58));
-          float md = max(0.0001, dot(d, sunDir));
-          col += uGlow * (pow(md, 10.0) * 0.16 + pow(md, 88.0) * 0.42);
-          gl_FragColor = vec4(col, 1.0);
-          if (uLinearOutput < 0.5) {
-            #include <tonemapping_fragment>
-            #include <colorspace_fragment>
-          }
+          float vy = clamp(vUv.y, 0.0, 1.0);
+          float vFade = smoothstep(0.0, 0.25, vy) * smoothstep(1.0, 0.52, vy);
+          float ndotv = clamp(abs(dot(normalize(vNormalW), normalize(vViewDirW))), 0.0, 1.0);
+          float rim = pow(ndotv, 1.85);
+          float a = clamp(vFade * rim * uOpacity, 0.0, 1.0);
+          gl_FragColor = vec4(uColor, a);
         }
       `,
-    })
-  );
-  scene.add(skyDome);
+    });
+    const sovereignCone = new THREE.Mesh(coneGeo, sovereignConeMat);
+    sovereignCone.position.copy(beamMid);
+    sovereignCone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), beamVec.clone().normalize());
+    sovereignCone.renderOrder = 3;
+    group.add(sovereignCone);
 
-  // Airy sky-haze during distant assembly -> tranquil sacred azure haze inside sanctuary
-  const EXTERIOR_FOG_COLOR = new THREE.Color('#dceafd');
-  const INTERIOR_FOG_COLOR = new THREE.Color('#5a92ea');
-  const BASE_FOG_DENSITY = 0.0052;
-  scene.fog = new THREE.FogExp2('#dceafd', BASE_FOG_DENSITY);
+    // 3. Cold Deep-Navy Volumetric God Rays Streaming from East Lancets Across Nave
+    beamMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uColor: { value: new THREE.Color('#2766e8') },
+        uCoreColor: { value: new THREE.Color('#6ca8ff') },
+        uOpacity: { value: 0.16 },
+        uCamPos: { value: new THREE.Vector3() },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        varying vec3 vNormalW;
+        void main() {
+          vUv = uv;
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform vec3 uCoreColor;
+        uniform float uOpacity;
+        uniform vec3 uCamPos;
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        varying vec3 vNormalW;
+        void main() {
+          float ux = clamp(vUv.x, 0.0, 1.0);
+          float uy = clamp(vUv.y, 0.0, 1.0);
+          float s = max(0.0, sin(ux * 3.14159265));
+          float xFade = s * s;
+          float stria = 0.72 + 0.28 * sin(ux * 22.0);
+          float yFade = smoothstep(0.0, 0.36, uy) * smoothstep(1.0, 0.10, uy);
 
-  // Celestial Key Light casting crisp diagonal exterior courtyard & interior stained-glass shadows
-  const keyLight = new THREE.DirectionalLight('#f2f7ff', 2.95);
-  keyLight.position.set(24, 25, -5);
-  keyLight.target.position.set(0, 1.2, 2);
-  keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(2048, 2048);
-  keyLight.shadow.camera.near = 2;
-  keyLight.shadow.camera.far = 92;
-  keyLight.shadow.camera.left = -34;
-  keyLight.shadow.camera.right = 34;
-  keyLight.shadow.camera.top = 34;
-  keyLight.shadow.camera.bottom = -36;
-  keyLight.shadow.bias = -0.0005;
-  keyLight.shadow.normalBias = 0.032;
-  keyLight.shadow.radius = 2.0;
-  group.add(keyLight, keyLight.target);
+          // Grazing-angle & near-camera fade so player walking inside rays never hits hard card seams!
+          vec3 V = normalize(uCamPos - vWorldPos);
+          float angFade = smoothstep(0.05, 0.38, abs(dot(normalize(vNormalW), V)));
+          float distFade = smoothstep(1.8, 4.8, length(uCamPos - vWorldPos));
 
-  // Sacred Cerulean-Azure Sanctuary Fill Lights (calm cathedral blue luminosity inside, never dark mud!)
-  const hemiLight = new THREE.HemisphereLight('#78b4ff', '#102654', 1.12);
-  const rimLight = new THREE.DirectionalLight('#8ec0ff', 0.95);
-  rimLight.position.set(-20, 15, -22);
-  group.add(hemiLight, rimLight);
+          vec3 col = mix(uColor, uCoreColor, xFade * stria * 0.55);
+          float a = clamp(xFade * yFade * stria * angFade * distFade * uOpacity, 0.0, 1.0);
+          gl_FragColor = vec4(col, a);
+        }
+      `,
+    });
 
-  // Soft overhead cerulean vault wash lights along nave spine
-  for (const lz of [8.0, 0.0, -8.0]) {
-    const azureFill = new THREE.PointLight('#5298ff', 6.8, 28, 1.15);
-    azureFill.position.set(0.0, 9.6, lz);
-    group.add(azureFill);
-  }
-
-  // Dedicated serene celestial spotlight illuminating veiled centerpiece & climbing carpet
-  const sanctuarySpot = new THREE.SpotLight('#eef6ff', 36.0, 28.0, Math.PI * 0.28, 0.78, 1.2);
-  sanctuarySpot.position.set(2.8, 12.2, -5.8);
-  sanctuarySpot.target.position.set(0, 3.0, -12.3);
-  group.add(sanctuarySpot, sanctuarySpot.target);
-
-  // 100% NaN-Proof Soft Cerulean-Azure Volumetric Clerestory Light Shafts (NO unclamped pow(sin)!)
-  const beamMat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
-    uniforms: {
-      uColor: { value: new THREE.Color('#7db8ff') },
-      uOpacity: { value: 0.13 },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-    `,
-    fragmentShader: `
-      uniform vec3 uColor;
-      uniform float uOpacity;
-      varying vec2 vUv;
-      void main() {
-        float ux = clamp(vUv.x, 0.0, 1.0);
-        float uy = clamp(vUv.y, 0.0, 1.0);
-        float s = max(0.0, sin(ux * 3.14159265));
-        float xFade = s * s;
-        float yFade = smoothstep(0.0, 0.34, uy) * smoothstep(1.0, 0.08, uy);
-        gl_FragColor = vec4(uColor, clamp(xFade * yFade * uOpacity, 0.0, 1.0));
+    const shaftGeo = new THREE.PlaneGeometry(1, 1);
+    const shaftZs = [18.25, 10.75, 3.25, -4.25, -11.75];
+    for (const sz of shaftZs) {
+      for (const [rotY, offZ] of [[0.24, -0.5], [-0.28, 0.5]]) {
+        const shaft = new THREE.Mesh(shaftGeo, beamMat);
+        shaft.position.set(6.8, 7.6, sz + offZ);
+        shaft.rotation.set(0.06, rotY, 0.76);
+        shaft.scale.set(3.2, 16.5, 1);
+        shaft.renderOrder = 3;
+        group.add(shaft);
+        beamMeshes.push(shaft);
       }
-    `,
-  });
+    }
 
-  const beamGeo = new THREE.PlaneGeometry(1, 1);
-  const beamGroup = new THREE.Group();
-  const beamSpecs = [
-    { pos: [3.6, 4.4, 7.2], rot: [0.08, 0.30, 0.56], scale: [2.8, 10.4, 1] },
-    { pos: [3.6, 4.4, 2.4], rot: [0.08, 0.30, 0.56], scale: [2.8, 10.4, 1] },
-    { pos: [3.6, 4.4, -2.4], rot: [0.08, 0.30, 0.56], scale: [2.8, 10.4, 1] },
-    { pos: [3.6, 4.4, -7.2], rot: [0.08, 0.30, 0.56], scale: [2.8, 10.4, 1] },
-    { pos: [0.0, 5.8, -11.6], rot: [0.40, 0.0, 0.0], scale: [4.2, 10.2, 1] },
-  ];
-  beamSpecs.forEach((b) => {
-    const m = new THREE.Mesh(beamGeo, beamMat);
-    m.position.set(...b.pos);
-    m.rotation.set(...b.rot);
-    m.scale.set(...b.scale);
-    beamGroup.add(m);
-  });
-  group.add(beamGroup);
+    // 4. Dual-Color Suspended Dust Motes (Cold Sapphire in Nave vs Pale Gold in Sovereign Light)
+    function makeDustSystem(count, colorHex, size, opacity, seedVal, posFn) {
+      const base = [];
+      const arr = new Float32Array(count * 3);
+      let s = seedVal;
+      const rnd = () => {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+      for (let i = 0; i < count; i++) {
+        const [x, y, z] = posFn(rnd);
+        base.push({ bx: x, by: y, bz: z, ph: rnd() * Math.PI * 2, spd: 0.3 + rnd() * 0.5 });
+        arr[i * 3] = x;
+        arr[i * 3 + 1] = y;
+        arr[i * 3 + 2] = z;
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      const mat = new THREE.PointsMaterial({
+        map: mats.bokehMap,
+        color: new THREE.Color(colorHex),
+        size,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const pts = new THREE.Points(geo, mat);
+      group.add(pts);
+      return { pts, base };
+    }
 
-  const dustCount = 64;
-  const dustBase = [];
-  const dustPositions = new Float32Array(dustCount * 3);
-  let sSeed = 42;
-  const rnd = () => {
-    sSeed = (sSeed * 1664525 + 1013904223) >>> 0;
-    return sSeed / 4294967296;
-  };
-  for (let i = 0; i < dustCount; i++) {
-    const x = (rnd() - 0.5) * 9.8;
-    const y = 1.4 + rnd() * 6.0;
-    const z = -13.2 + rnd() * 25.0;
-    dustBase.push({ bx: x, by: y, bz: z, ph: rnd() * Math.PI * 2, spd: 0.35 + rnd() * 0.55 });
-    dustPositions[i * 3] = x;
-    dustPositions[i * 3 + 1] = y;
-    dustPositions[i * 3 + 2] = z;
+    const navyRes = makeDustSystem(90, '#629eff', 0.24, 0.30, 42, (rnd) => [
+      (rnd() - 0.5) * 18.0,
+      1.2 + rnd() * 14.0,
+      -18.0 + rnd() * 40.0,
+    ]);
+    navyDust = navyRes.pts;
+    navyDustBase.push(...navyRes.base);
+
+    const goldRes = makeDustSystem(42, '#fff0c8', 0.26, 0.42, 777, (rnd) => [
+      (rnd() - 0.5) * 4.4,
+      1.5 + rnd() * 14.0,
+      -21.5 + rnd() * 5.2,
+    ]);
+    goldDust = goldRes.pts;
+    goldDustBase.push(...goldRes.base);
+
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = false;
   }
-  const dustGeo = new THREE.BufferGeometry();
-  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
-  const dustPointsMat = new THREE.PointsMaterial({
-    map: mats.bokehMap,
-    color: new THREE.Color('#c8e2ff'),
-    size: 0.22,
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.26,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const dustPoints = new THREE.Points(dustGeo, dustPointsMat);
-  group.add(dustPoints);
-
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.shadowMap.autoUpdate = false;
 
   function bakeStaticShadows() {
     renderer.shadowMap.needsUpdate = true;
   }
 
-  function setFogDensity(density, interiorBlend = 0.0) {
-    scene.fog.density = density;
-    scene.fog.color.copy(EXTERIOR_FOG_COLOR).lerp(INTERIOR_FOG_COLOR, THREE.MathUtils.clamp(interiorBlend, 0, 1));
+  function setMaterializeProgress(m01) {
+    const m = THREE.MathUtils.clamp(m01, 0, 1);
+    if (keyLight) keyLight.intensity = 3.05 * m;
+    if (hemiLight) hemiLight.intensity = 0.82 * m;
+    vaultBounceLights.forEach((vl) => {
+      vl.intensity = vl.userData.baseIntensity * m;
+    });
+    if (sovereignSpot) sovereignSpot.intensity = 175.0 * m;
+    if (sovereignWarmFill) sovereignWarmFill.intensity = 17.5 * m;
+    if (sovereignConeMat) sovereignConeMat.uniforms.uOpacity.value = 0.12 * m;
+    if (beamMat) beamMat.uniforms.uOpacity.value = 0.16 * m;
   }
 
-  function setBuildProgress(p) {
-    const glow = THREE.MathUtils.clamp((p - 0.2) / 0.6, 0.25, 1.0);
-    beamMat.uniforms.uOpacity.value = 0.13 * glow;
-    sanctuarySpot.intensity = 36.0 * glow;
-  }
-
-  function setSkyLinearOutput(enabled) {
-    skyUniforms.uLinearOutput.value = enabled ? 1.0 : 0.0;
-  }
-
-  function update(dt, elapsed) {
-    const attr = dustGeo.attributes.position;
-    for (let i = 0; i < dustCount; i++) {
-      const b = dustBase[i];
-      attr.setXYZ(
-        i,
-        b.bx + Math.sin(elapsed * b.spd + b.ph) * 0.18,
-        b.by + Math.cos(elapsed * (b.spd * 0.8) + b.ph) * 0.14,
-        b.bz + Math.sin(elapsed * 0.35 + b.ph * 1.3) * 0.14
-      );
+  function update(dt, elapsed, camera) {
+    if (beamMat && camera) {
+      beamMat.uniforms.uCamPos.value.copy(camera.position);
     }
-    attr.needsUpdate = true;
+    for (const [pts, base] of [
+      [navyDust, navyDustBase],
+      [goldDust, goldDustBase],
+    ]) {
+      if (!pts) continue;
+      const attr = pts.geometry.attributes.position;
+      for (let i = 0; i < base.length; i++) {
+        const b = base[i];
+        attr.setXYZ(
+          i,
+          b.bx + Math.sin(elapsed * b.spd + b.ph) * 0.20,
+          b.by + Math.cos(elapsed * (b.spd * 0.8) + b.ph) * 0.16,
+          b.bz + Math.sin(elapsed * 0.35 + b.ph * 1.3) * 0.16
+        );
+      }
+      attr.needsUpdate = true;
+    }
   }
 
   function dispose() {
-    envRT.dispose();
-    beamMat.dispose();
-    dustGeo.dispose();
-    dustPointsMat.dispose();
+    if (envRT) envRT.dispose();
+    if (beamMat) beamMat.dispose();
+    if (sovereignConeMat) sovereignConeMat.dispose();
   }
 
   return {
     group,
     BASE_FOG_DENSITY,
+    buildEnvironment,
+    buildLightsAndRays,
     bakeStaticShadows,
-    setFogDensity,
-    setBuildProgress,
-    setSkyLinearOutput,
+    setMaterializeProgress,
     update,
     dispose,
   };

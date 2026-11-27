@@ -1,371 +1,420 @@
 import * as THREE from 'three';
 import { smooth01 } from './geo.js';
 
-// Primary 2.5D Gallery Cutaway Overview framing ALL 10 project cloches, carpet, & central veiled painting cleanly!
-const GALLERY_OVERVIEW_POS = new THREE.Vector3(15.2, 13.2, 19.2);
-const GALLERY_OVERVIEW_TARGET = new THREE.Vector3(0.0, 2.05, -0.6);
-const GALLERY_FOV = 45;
+export const PRESETS = {
+  sovereign: {
+    id: 'sovereign',
+    label: '晋见主位',
+    pos: [0.0, 1.12, 10.8],
+    target: [0.0, 4.95, -20.5],
+    fov: 46,
+    zone: 'ground',
+    eyeH: 1.12,
+  },
+  masterpiece: {
+    id: 'masterpiece',
+    label: '主画近景',
+    pos: [2.35, 3.35, -12.0],
+    target: [0.0, 4.85, -20.5],
+    fov: 42,
+    zone: 'ground',
+    eyeH: 1.65,
+  },
+  mezzanine: {
+    id: 'mezzanine',
+    label: '二楼俯瞰',
+    pos: [0.0, 11.55, 11.68],
+    target: [0.0, 4.10, -18.5],
+    fov: 52,
+    zone: 'mezzanine',
+    eyeH: 2.35,
+  },
+  stainedGlass: {
+    id: 'stainedGlass',
+    label: '花窗光影',
+    pos: [-7.6, 3.10, 8.8],
+    target: [10.8, 10.0, -1.5],
+    fov: 48,
+    zone: 'ground',
+    eyeH: 1.65,
+  },
+  spiralWell: {
+    id: 'spiralWell',
+    label: '螺旋阶梯',
+    pos: [0.0, 3.05, 25.4],
+    target: [0.0, 4.10, -4.0],
+    fov: 56,
+    zone: 'ground',
+    eyeH: 1.65,
+  },
+};
 
-// Sacred Cerulean Axial Sanctuary Carpet View (comfortable clearance under top vault rib apex)
-const HERO_EXPLORE_POS = new THREE.Vector3(0.0, 2.85, 13.4);
-const HERO_EXPLORE_TARGET = new THREE.Vector3(0.0, 2.85, -11.5);
-const AXIAL_FOV = 44;
+function computeYawPitch(posVec, tgtVec) {
+  const dx = tgtVec.x - posVec.x;
+  const dy = tgtVec.y - posVec.y;
+  const dz = tgtVec.z - posVec.z;
+  const horiz = Math.hypot(dx, dz) || 1e-5;
+  return {
+    yaw: Math.atan2(-dx, -dz),
+    pitch: THREE.MathUtils.clamp(Math.atan2(dy, horiz), -1.56, 1.25),
+  };
+}
 
-// Wide Genshin-approach FOV during bridge paving walk so BOTH road slabs & full spires sit clearly inside!
-const INTRO_WALK_FOV = 56;
+function shortestAngleDiff(targetAngle, currentAngle) {
+  let d = (targetAngle - currentAngle) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
 
-// 3/4 Exterior Gothic Cathedral Diorama View
-const EXTERIOR_DIORAMA_POS = new THREE.Vector3(38.0, 22.0, 44.0);
-const EXTERIOR_DIORAMA_TARGET = new THREE.Vector3(0.0, 5.8, 6.0);
-const EXTERIOR_FOV = 40;
+/**
+ * Sovereign FPV Camera Controller:
+ * - Stage 1 ('loading'): Top-down stairwell view bound to real async load progress 0..1
+ * - Stage 2 ('dive'): Exact 1.70s high-speed axial plunge through the 4.3m spiral shaft -> sharp late brake
+ *   -> low-angle upward frame directly facing Central Masterpiece with back against staircase
+ * - Stage 3 ('explore'): Damped WASD/Arrow free-roam (climbs 56-step spiral stairs <-> 2nd-floor Mezzanine)
+ *   + Mouse-drag look + Preset Camera Lerps strictly confined inside enclosure by `collider`
+ */
+export function createCameraController(camera, domElement, collider, { onDiveStep, onStageChange }) {
+  camera.rotation.order = 'YXZ';
 
-export function createCameraController(camera, domElement, { onIntroStep, onStageChange }) {
-  let stage = 'intro';
-  let introElapsed = 0;
-  let introFrozen = false;
-  const INTRO_DURATION = 6.6;
+  let stage = 'loading';
+  let diveElapsed = 0;
+  let diveFrozen = false;
+  const DIVE_DURATION = 1.70;
 
-  const target = GALLERY_OVERVIEW_TARGET.clone();
-  const desiredTarget = GALLERY_OVERVIEW_TARGET.clone();
-  const spherical = new THREE.Spherical();
-  const desiredSpherical = new THREE.Spherical();
-  let desiredFov = GALLERY_FOV;
+  let yaw = 0;
+  let pitch = -1.555;
+  let targetYaw = 0;
+  let targetPitch = -1.555;
+  let desiredFov = 54;
 
-  function syncSpherical(posVec, tgtVec) {
-    const off = posVec.clone().sub(tgtVec);
-    spherical.setFromVector3(off);
-    desiredSpherical.copy(spherical);
-  }
+  const roamPos = new THREE.Vector3(0.0, 15.6, 18.0);
+  const vel = new THREE.Vector3();
+  const moveState = { zone: 'ground', footY: 0.0, stairTheta: 0.24 * Math.PI };
+  let eyeH = 1.08;
+  let targetEyeH = 1.08;
 
+  // Dive path through open vertical shaft (rWell=2.15) exiting smoothly under Y=5.15m North arch (z=13.65)
+  const divePosCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.0, 15.6, 18.0),
+    new THREE.Vector3(0.0, 10.4, 18.0),
+    new THREE.Vector3(0.0, 5.2, 17.6),
+    new THREE.Vector3(0.0, 2.25, 14.4),
+    new THREE.Vector3(0.0, 1.32, 11.8),
+    new THREE.Vector3(0.0, 1.12, 10.8),
+  ]);
+  const sovereignYP = computeYawPitch(
+    new THREE.Vector3(...PRESETS.sovereign.pos),
+    new THREE.Vector3(...PRESETS.sovereign.target)
+  );
+
+  // Preset Camera Transition Tween State
   let tweenActive = false;
   let tweenElapsed = 0;
-  const TWEEN_DURATION = 1.0;
-  const tweenStartPos = new THREE.Vector3();
-  const tweenEndPos = new THREE.Vector3();
-  const tweenStartTgt = new THREE.Vector3();
-  const tweenEndTgt = new THREE.Vector3();
-  let tweenStartFov = GALLERY_FOV;
-  let tweenEndFov = GALLERY_FOV;
+  const TWEEN_DURATION = 1.15;
+  let tweenCurve = null;
+  let tweenStartYaw = 0;
+  let tweenEndYaw = 0;
+  let tweenStartPitch = 0;
+  let tweenEndPitch = 0;
+  let tweenStartFov = 44;
+  let tweenEndFov = 44;
+  let tweenEndZone = 'ground';
+  let tweenEndEyeH = 1.65;
 
-  // Strictly centered X = 0.0 straight Genshin-style axial walk: sees forward rising stone bridge AND full clear-sky cathedral spires!
-  const walkPosCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.0, 4.8, 62.0),
-    new THREE.Vector3(0.0, 4.3, 50.0),
-    new THREE.Vector3(0.0, 3.6, 30.0),
-    new THREE.Vector3(0.0, 2.85, 14.0),
-  ]);
-
-  const walkLookCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.0, 7.6, 16.0),
-    new THREE.Vector3(0.0, 7.3, 13.0),
-    new THREE.Vector3(0.0, 3.8, 0.0),
-    new THREE.Vector3(0.0, 2.85, -10.5),
-  ]);
-
-  function applyIntroAt(t01) {
-    const t = THREE.MathUtils.clamp(t01, 0, 1);
-
-    if (t <= 0.82) {
-      const wt = t / 0.82;
-      const pos = walkPosCurve.getPoint(wt);
-      const look = walkLookCurve.getPoint(wt);
-      camera.position.copy(pos);
-      camera.lookAt(look);
-      const wfov = THREE.MathUtils.lerp(INTRO_WALK_FOV, AXIAL_FOV, smooth01(0.45, 0.95, wt));
-      if (Math.abs(camera.fov - wfov) > 0.02) {
-        camera.fov = wfov;
-        camera.updateProjectionMatrix();
-      }
-    } else {
-      // Smooth reveal lift from the nave carpet up into the unobstructed 2.5D Gallery Overview
-      const gt = smooth01(0.82, 1.0, t);
-      const walkEndPos = walkPosCurve.getPoint(1);
-      const walkEndLook = walkLookCurve.getPoint(1);
-      camera.position.lerpVectors(walkEndPos, GALLERY_OVERVIEW_POS, gt);
-      const look = new THREE.Vector3().lerpVectors(walkEndLook, GALLERY_OVERVIEW_TARGET, gt);
-      camera.lookAt(look);
-      const nextFov = THREE.MathUtils.lerp(AXIAL_FOV, GALLERY_FOV, gt);
-      if (Math.abs(camera.fov - nextFov) > 0.02) {
-        camera.fov = nextFov;
-        camera.updateProjectionMatrix();
-      }
-    }
-
-    const buildProgress = smooth01(0.0, 0.50, t);
-    const roadProgress = smooth01(0.0, 0.54, t);
-    const doorOpen = smooth01(0.48, 0.74, t);
-    const fogClarity = smooth01(0.04, 0.78, t);
-    const interiorBlend = smooth01(0.68, 0.90, t);
-
-    onIntroStep?.({ t, buildProgress, roadProgress, doorOpen, fogClarity, interiorBlend });
-  }
-
-  function startIntro() {
-    stage = 'intro';
-    introElapsed = 0;
-    introFrozen = false;
-    tweenActive = false;
-    onStageChange?.('intro');
-    applyIntroAt(0);
-  }
-
-  function setIntroProgress(t01) {
-    stage = 'intro';
-    introFrozen = true;
-    tweenActive = false;
-    introElapsed = THREE.MathUtils.clamp(t01, 0, 1) * INTRO_DURATION;
-    onStageChange?.('intro');
-    applyIntroAt(t01);
-  }
-
-  function enterExplore(snap = false) {
-    stage = 'explore';
-    introFrozen = false;
-    onIntroStep?.({
-      t: 1,
-      buildProgress: 1,
-      roadProgress: 1,
-      doorOpen: 1,
-      fogClarity: 1,
-      interiorBlend: 1,
-    });
-    onStageChange?.('explore');
-    if (snap) {
-      tweenActive = false;
-      camera.position.copy(GALLERY_OVERVIEW_POS);
-      target.copy(GALLERY_OVERVIEW_TARGET);
-      desiredTarget.copy(GALLERY_OVERVIEW_TARGET);
-      syncSpherical(GALLERY_OVERVIEW_POS, GALLERY_OVERVIEW_TARGET);
-      camera.fov = GALLERY_FOV;
-      desiredFov = GALLERY_FOV;
+  function applyLoadingPose(p01) {
+    const p = THREE.MathUtils.clamp(p01, 0, 1);
+    camera.position.set(0.0, 16.0 - p * 0.4, 18.0);
+    camera.rotation.set(-1.555, 0, 0);
+    if (Math.abs(camera.fov - 54) > 0.05) {
+      camera.fov = 54;
       camera.updateProjectionMatrix();
-      camera.lookAt(target);
-    } else {
-      focusPose(GALLERY_OVERVIEW_POS.toArray(), GALLERY_OVERVIEW_TARGET.toArray(), false, GALLERY_FOV);
     }
+    onDiveStep?.({ motionBlur: 0.0 });
   }
 
-  function focusPose(posArr, tgtArr, snap = false, fov = 40) {
-    if (stage !== 'explore') {
-      stage = 'explore';
-      introFrozen = false;
-      onIntroStep?.({
-        t: 1,
-        buildProgress: 1,
-        roadProgress: 1,
-        doorOpen: 1,
-        fogClarity: 1,
-        interiorBlend: 1,
-      });
-      onStageChange?.('explore');
+  function applyDiveAt(t01) {
+    const u = THREE.MathUtils.clamp(t01, 0, 1);
+    const pos = divePosCurve.getPoint(u);
+    camera.position.copy(pos);
+
+    // Pitch whips cleanly up from -1.555 rad straight down to +0.126 rad Sovereign upward gaze
+    const whipT = smooth01(0.36, 0.96, u);
+    const divePitch = THREE.MathUtils.lerp(-1.555, sovereignYP.pitch, whipT);
+    camera.rotation.set(divePitch, 0, 0);
+
+    // Dynamic FOV stretch during peak plunge then sharp compression into final framing
+    const peakStretch = Math.sin(smooth01(0.02, 0.92, u) * Math.PI);
+    const nextFov = THREE.MathUtils.lerp(54, 44, u) + peakStretch * 28.0;
+    if (Math.abs(camera.fov - nextFov) > 0.05) {
+      camera.fov = nextFov;
+      camera.updateProjectionMatrix();
     }
-    const nextPos = new THREE.Vector3(...posArr);
-    const nextTgt = new THREE.Vector3(...tgtArr);
-    desiredFov = fov;
-    if (snap) {
+
+    const blur = Math.sin(smooth01(0.05, 0.90, u) * Math.PI) * 0.68;
+    onDiveStep?.({ motionBlur: blur, u });
+  }
+
+  function setStage(next) {
+    if (stage === next) return;
+    stage = next;
+    onStageChange?.(next);
+  }
+
+  function setLoadingProgress(p01) {
+    setStage('loading');
+    diveFrozen = false;
+    tweenActive = false;
+    applyLoadingPose(p01);
+  }
+
+  function startDive() {
+    setStage('dive');
+    diveElapsed = 0;
+    diveFrozen = false;
+    tweenActive = false;
+    applyDiveAt(0);
+  }
+
+  function setDiveTime(sec) {
+    setStage('dive');
+    diveFrozen = true;
+    tweenActive = false;
+    diveElapsed = THREE.MathUtils.clamp(sec, 0, DIVE_DURATION);
+    applyDiveAt(diveElapsed / DIVE_DURATION);
+  }
+
+  function finishDiveToExplore() {
+    const sov = PRESETS.sovereign;
+    roamPos.set(...sov.pos);
+    moveState.zone = 'ground';
+    moveState.footY = 0.0;
+    moveState.stairTheta = 0.24 * Math.PI;
+    eyeH = sov.eyeH;
+    targetEyeH = sov.eyeH;
+    yaw = sovereignYP.yaw;
+    targetYaw = sovereignYP.yaw;
+    pitch = sovereignYP.pitch;
+    targetPitch = sovereignYP.pitch;
+    desiredFov = sov.fov;
+    vel.set(0, 0, 0);
+    tweenActive = false;
+    camera.position.copy(roamPos);
+    camera.rotation.set(pitch, yaw, 0);
+    camera.fov = desiredFov;
+    camera.updateProjectionMatrix();
+    onDiveStep?.({ motionBlur: 0.0 });
+    setStage('explore');
+  }
+
+  function focusPose(posArr, targetArr, instant = false, fov = 44, endZone = 'ground', endEye = 1.65) {
+    setStage('explore');
+    const endPos = new THREE.Vector3(...posArr);
+    const tgtVec = new THREE.Vector3(...targetArr);
+    const endYP = computeYawPitch(endPos, tgtVec);
+    onDiveStep?.({ motionBlur: 0.0 });
+
+    if (instant) {
       tweenActive = false;
-      camera.position.copy(nextPos);
-      target.copy(nextTgt);
-      desiredTarget.copy(nextTgt);
-      syncSpherical(nextPos, nextTgt);
-      if (Math.abs(camera.fov - fov) > 0.02) {
-        camera.fov = fov;
-        camera.updateProjectionMatrix();
-      }
-      camera.lookAt(target);
+      roamPos.copy(endPos);
+      moveState.zone = endZone;
+      moveState.footY = endZone === 'mezzanine' ? 9.20 : 0.0;
+      eyeH = endEye;
+      targetEyeH = endEye;
+      collider.resolvePosition(roamPos, moveState);
+      yaw = endYP.yaw;
+      targetYaw = endYP.yaw;
+      pitch = endYP.pitch;
+      targetPitch = endYP.pitch;
+      desiredFov = fov;
+      camera.position.copy(roamPos);
+      camera.rotation.set(pitch, yaw, 0);
+      camera.fov = desiredFov;
+      camera.updateProjectionMatrix();
       return;
     }
-    tweenStartPos.copy(camera.position);
-    tweenStartTgt.copy(target);
-    tweenEndPos.copy(nextPos);
-    tweenEndTgt.copy(nextTgt);
+
+    tweenActive = true;
+    tweenElapsed = 0;
+    tweenCurve = collider.buildSafeTweenCurve(roamPos, endPos);
+    tweenStartYaw = yaw;
+    tweenEndYaw = endYP.yaw;
+    tweenStartPitch = pitch;
+    tweenEndPitch = endYP.pitch;
     tweenStartFov = camera.fov;
     tweenEndFov = fov;
-    tweenElapsed = 0;
-    tweenActive = true;
+    tweenEndZone = endZone;
+    tweenEndEyeH = endEye;
   }
 
-  function resetGalleryView(snap = false) {
-    focusPose(GALLERY_OVERVIEW_POS.toArray(), GALLERY_OVERVIEW_TARGET.toArray(), snap, GALLERY_FOV);
+  function goToPreset(presetKey, instant = false) {
+    const p = PRESETS[presetKey] || PRESETS.sovereign;
+    focusPose(p.pos, p.target, instant, p.fov, p.zone, p.eyeH);
+    return p;
   }
 
-  function resetInteriorView(snap = false) {
-    focusPose(HERO_EXPLORE_POS.toArray(), HERO_EXPLORE_TARGET.toArray(), snap, AXIAL_FOV);
-  }
+  // Input listeners: Mouse Drag Look + WASD / Arrow Keys Free Roam
+  const keys = new Set();
+  let dragging = false;
+  let downX = 0;
+  let downY = 0;
+  let prevX = 0;
+  let prevY = 0;
+  let movedDistance = 0;
+  let lastWasClick = false;
 
-  function resetExteriorView(snap = false) {
-    focusPose(EXTERIOR_DIORAMA_POS.toArray(), EXTERIOR_DIORAMA_TARGET.toArray(), snap, EXTERIOR_FOV);
-  }
-
-  const activePointers = new Map();
-  let dragMode = null;
-  let prevDrag = { x: 0, y: 0 };
-  let lastPinchDist = null;
-  let movedDist = 0;
-
-  function onPointerDown(e) {
-    if (stage === 'intro') {
-      enterExplore(false);
-    }
-    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (activePointers.size === 1) {
-      dragMode = e.button === 2 || e.shiftKey ? 'pan' : 'orbit';
-      prevDrag = { x: e.clientX, y: e.clientY };
-      movedDist = 0;
-    }
-    lastPinchDist = null;
-  }
-
-  function onPointerMove(e) {
+  domElement.addEventListener('pointerdown', (e) => {
     if (stage !== 'explore') return;
-    if (activePointers.has(e.pointerId)) {
-      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    }
-    if (activePointers.size === 2) {
-      const pts = Array.from(activePointers.values());
-      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      if (lastPinchDist !== null) {
-        desiredSpherical.radius = THREE.MathUtils.clamp(
-          desiredSpherical.radius + (lastPinchDist - dist) * 0.06,
-          2.8,
-          62.0
-        );
-      }
-      lastPinchDist = dist;
-      tweenActive = false;
-      return;
-    }
-    if (!dragMode) return;
-    const dx = e.clientX - prevDrag.x;
-    const dy = e.clientY - prevDrag.y;
-    movedDist += Math.hypot(dx, dy);
-    prevDrag = { x: e.clientX, y: e.clientY };
+    dragging = true;
+    downX = prevX = e.clientX;
+    downY = prevY = e.clientY;
+    movedDistance = 0;
+    domElement.setPointerCapture?.(e.pointerId);
+  });
 
-    if (dragMode === 'orbit') {
-      desiredSpherical.theta -= dx * 0.0062;
-      desiredSpherical.phi = THREE.MathUtils.clamp(desiredSpherical.phi - dy * 0.0052, 0.22, 1.52);
-    } else if (dragMode === 'pan') {
-      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-      const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-      fwd.y = 0;
-      if (fwd.lengthSq() > 0.001) fwd.normalize();
-      const panScale = desiredSpherical.radius * 0.0014;
-      desiredTarget.addScaledVector(right, -dx * panScale);
-      desiredTarget.addScaledVector(fwd, dy * panScale);
-      desiredTarget.x = THREE.MathUtils.clamp(desiredTarget.x, -10.0, 10.0);
-      desiredTarget.z = THREE.MathUtils.clamp(desiredTarget.z, -16.0, 22.0);
-      desiredTarget.y = THREE.MathUtils.clamp(desiredTarget.y, 0.8, 8.0);
-    }
-    tweenActive = false;
-  }
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging || stage !== 'explore') return;
+    const dx = e.clientX - prevX;
+    const dy = e.clientY - prevY;
+    prevX = e.clientX;
+    prevY = e.clientY;
+    movedDistance += Math.hypot(dx, dy);
+    if (Math.abs(dx) + Math.abs(dy) > 1.5) tweenActive = false;
 
-  function onPointerUp(e) {
-    activePointers.delete(e.pointerId);
-    if (activePointers.size < 2) lastPinchDist = null;
-    if (activePointers.size === 0) dragMode = null;
-  }
+    targetYaw += dx * 0.0038;
+    targetPitch = THREE.MathUtils.clamp(targetPitch + dy * 0.0032, -1.22, 1.22);
+  });
+
+  window.addEventListener('pointerup', (e) => {
+    if (!dragging) return;
+    dragging = false;
+    lastWasClick = movedDistance < 6 && Math.hypot(e.clientX - downX, e.clientY - downY) < 6;
+    domElement.releasePointerCapture?.(e.pointerId);
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    keys.add(e.code);
+  });
+
+  window.addEventListener('keyup', (e) => {
+    keys.delete(e.code);
+  });
+
+  window.addEventListener('blur', () => {
+    keys.clear();
+    dragging = false;
+  });
 
   function zoomBy(deltaY) {
-    if (stage === 'intro') {
-      enterExplore(false);
-    }
-    desiredSpherical.radius = THREE.MathUtils.clamp(desiredSpherical.radius + deltaY * 0.014, 2.8, 62.0);
-    tweenActive = false;
+    if (stage !== 'explore') return;
+    desiredFov = THREE.MathUtils.clamp(desiredFov + deltaY * 0.016, 30, 62);
   }
-
-  function onContextMenu(e) {
-    e.preventDefault();
-  }
-
-  domElement.addEventListener('pointerdown', onPointerDown);
-  domElement.addEventListener('pointermove', onPointerMove);
-  domElement.addEventListener('contextmenu', onContextMenu);
-  window.addEventListener('pointerup', onPointerUp);
-  window.addEventListener('pointercancel', onPointerUp);
 
   function update(dt) {
-    if (stage === 'intro') {
-      if (!introFrozen) {
-        introElapsed += dt;
-        const rawT = Math.min(1, introElapsed / INTRO_DURATION);
-        applyIntroAt(rawT);
-        if (rawT >= 1) {
-          stage = 'explore';
-          camera.position.copy(GALLERY_OVERVIEW_POS);
-          target.copy(GALLERY_OVERVIEW_TARGET);
-          desiredTarget.copy(GALLERY_OVERVIEW_TARGET);
-          syncSpherical(GALLERY_OVERVIEW_POS, GALLERY_OVERVIEW_TARGET);
-          camera.fov = GALLERY_FOV;
-          desiredFov = GALLERY_FOV;
-          camera.updateProjectionMatrix();
-          camera.lookAt(target);
-          onStageChange?.('explore');
+    if (stage === 'loading') return;
+
+    if (stage === 'dive') {
+      if (!diveFrozen) {
+        diveElapsed += dt;
+        const u = THREE.MathUtils.clamp(diveElapsed / DIVE_DURATION, 0, 1);
+        applyDiveAt(u);
+        if (diveElapsed >= DIVE_DURATION) {
+          finishDiveToExplore();
         }
       }
       return;
     }
 
-    if (tweenActive) {
+    // Explore Stage
+    if (tweenActive && tweenCurve) {
       tweenElapsed += dt;
-      const raw = Math.min(1, tweenElapsed / TWEEN_DURATION);
-      const e = raw * raw * raw * (raw * (raw * 6 - 15) + 10);
-      camera.position.lerpVectors(tweenStartPos, tweenEndPos, e);
-      target.lerpVectors(tweenStartTgt, tweenEndTgt, e);
-      desiredTarget.copy(target);
-      syncSpherical(camera.position, target);
-      const curFov = THREE.MathUtils.lerp(tweenStartFov, tweenEndFov, e);
-      if (Math.abs(camera.fov - curFov) > 0.02) {
-        camera.fov = curFov;
+      const u = THREE.MathUtils.clamp(tweenElapsed / TWEEN_DURATION, 0, 1);
+      const ease = u * u * u * (u * (u * 6 - 15) + 10);
+      const pt = tweenCurve.getPoint(ease);
+      roamPos.copy(pt);
+      yaw = tweenStartYaw + shortestAngleDiff(tweenEndYaw, tweenStartYaw) * ease;
+      pitch = THREE.MathUtils.lerp(tweenStartPitch, tweenEndPitch, ease);
+      targetYaw = yaw;
+      targetPitch = pitch;
+      desiredFov = THREE.MathUtils.lerp(tweenStartFov, tweenEndFov, ease);
+
+      camera.position.copy(roamPos);
+      camera.rotation.set(pitch, yaw, 0);
+      if (Math.abs(camera.fov - desiredFov) > 0.04) {
+        camera.fov = desiredFov;
         camera.updateProjectionMatrix();
       }
-      camera.lookAt(target);
-      if (raw >= 1) tweenActive = false;
+
+      if (u >= 1) {
+        tweenActive = false;
+        moveState.zone = tweenEndZone;
+        moveState.footY = tweenEndZone === 'mezzanine' ? 9.20 : 0.0;
+        eyeH = tweenEndEyeH;
+        targetEyeH = tweenEndEyeH;
+      }
       return;
     }
 
-    const damp = Math.min(1, dt * 8.5);
-    spherical.theta += (desiredSpherical.theta - spherical.theta) * damp;
-    spherical.phi += (desiredSpherical.phi - spherical.phi) * damp;
-    spherical.radius += (desiredSpherical.radius - spherical.radius) * damp;
-    target.lerp(desiredTarget, damp);
+    // Check WASD / Arrow movement
+    const fwdIn = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
+    const sideIn = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+    const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 1.55 : 1.0;
 
-    const offset = new THREE.Vector3().setFromSpherical(spherical);
-    camera.position.copy(target).add(offset);
-    if (camera.position.y < 0.72) {
-      camera.position.y = 0.72;
+    const rotDamp = 1 - Math.exp(-dt * 14);
+    yaw += shortestAngleDiff(targetYaw, yaw) * rotDamp;
+    pitch += (targetPitch - pitch) * rotDamp;
+
+    if (fwdIn !== 0 || sideIn !== 0) {
+      targetEyeH = 1.65;
+      const fwdX = -Math.sin(yaw);
+      const fwdZ = -Math.cos(yaw);
+      const rightX = Math.cos(yaw);
+      const rightZ = -Math.sin(yaw);
+
+      let wishX = fwdX * fwdIn + rightX * sideIn;
+      let wishZ = fwdZ * fwdIn + rightZ * sideIn;
+      const len = Math.hypot(wishX, wishZ) || 1;
+      wishX /= len;
+      wishZ /= len;
+
+      const speed = 6.2 * sprint;
+      const accelDamp = 1 - Math.exp(-dt * 10);
+      vel.x += (wishX * speed - vel.x) * accelDamp;
+      vel.z += (wishZ * speed - vel.z) * accelDamp;
+    } else {
+      const decelDamp = 1 - Math.exp(-dt * 12);
+      vel.x *= 1 - decelDamp;
+      vel.z *= 1 - decelDamp;
     }
+
+    eyeH += (targetEyeH - eyeH) * (1 - Math.exp(-dt * 7));
+    roamPos.x += vel.x * dt;
+    roamPos.z += vel.z * dt;
+    collider.resolvePosition(roamPos, moveState);
+    roamPos.y = Math.min(23.5, moveState.footY + eyeH);
+
+    camera.position.copy(roamPos);
+    camera.rotation.set(pitch, yaw, 0);
+
     if (Math.abs(camera.fov - desiredFov) > 0.04) {
-      camera.fov += (desiredFov - camera.fov) * damp;
+      camera.fov += (desiredFov - camera.fov) * (1 - Math.exp(-dt * 10));
       camera.updateProjectionMatrix();
     }
-    camera.lookAt(target);
-  }
-
-  function dispose() {
-    domElement.removeEventListener('pointerdown', onPointerDown);
-    domElement.removeEventListener('pointermove', onPointerMove);
-    domElement.removeEventListener('contextmenu', onContextMenu);
-    window.removeEventListener('pointerup', onPointerUp);
-    window.removeEventListener('pointercancel', onPointerUp);
   }
 
   return {
-    startIntro,
-    setIntroProgress,
-    enterExplore,
-    focusPose,
-    resetGalleryView,
-    resetInteriorView,
-    resetExteriorView,
-    zoomBy,
-    wasClick: () => movedDist < 6,
     getStage: () => stage,
-    getSpherical: () => ({
-      theta: +spherical.theta.toFixed(4),
-      phi: +spherical.phi.toFixed(4),
-      radius: +spherical.radius.toFixed(3),
-    }),
+    getMoveZone: () => moveState.zone,
+    wasClick: () => lastWasClick,
+    setLoadingProgress,
+    startDive,
+    setDiveTime,
+    finishDiveToExplore,
+    goToPreset,
+    focusPose,
+    zoomBy,
     update,
-    dispose,
   };
 }

@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 
+/**
+ * High-precision HDR Post-Processing with NaN/Inf sanitization, highlight bloom,
+ * and velocity-linked radial FPV Dive Motion Blur.
+ */
 export function createCathedralPostFX(renderer, width, height, dpr = 1) {
   const isWebGL2 = renderer.capabilities.isWebGL2;
   const maxSamples = isWebGL2 ? Math.min(2, renderer.capabilities.maxSamples || 0) : 0;
@@ -79,11 +83,11 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
     uniforms: {
       tScene: { value: sceneRT.texture },
       tBlur: { value: blurB.texture },
-      uBloomThreshold: { value: 1.38 },
-      uBloomStrength: { value: 0.09 },
-      uBloomTint: { value: new THREE.Vector3(0.80, 0.91, 1.12) },
-      uVignetteTint: { value: new THREE.Vector3(0.04, 0.08, 0.22) },
-      uDofStrength: { value: 0.42 },
+      uBloomThreshold: { value: 1.24 },
+      uBloomStrength: { value: 0.11 },
+      uBloomTint: { value: new THREE.Vector3(1.0, 0.99, 0.96) },
+      uVignetteTint: { value: new THREE.Vector3(0.015, 0.035, 0.11) },
+      uMotionBlur: { value: 0.0 },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -96,7 +100,7 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
       uniform float uBloomStrength;
       uniform vec3 uBloomTint;
       uniform vec3 uVignetteTint;
-      uniform float uDofStrength;
+      uniform float uMotionBlur;
       varying vec2 vUv;
       vec3 safeHDR(vec3 c) {
         return vec3(
@@ -106,21 +110,27 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
         );
       }
       void main() {
-        vec3 sharp = safeHDR(texture2D(tScene, vUv).rgb);
+        vec3 col = safeHDR(texture2D(tScene, vUv).rgb);
+
+        if (uMotionBlur > 0.005) {
+          vec2 off = vUv - vec2(0.5);
+          float r2 = dot(off, off);
+          vec3 radSum = col;
+          for (int i = 1; i <= 5; i++) {
+            float k = float(i) * 0.2;
+            vec2 su = clamp(vUv - off * (k * r2 * uMotionBlur * 0.22), 0.002, 0.998);
+            radSum += safeHDR(texture2D(tScene, su).rgb);
+          }
+          col = mix(col, radSum / 6.0, clamp(uMotionBlur * (0.25 + r2 * 1.4), 0.0, 0.82));
+        }
+
         vec3 blurCol = safeHDR(texture2D(tBlur, vUv).rgb);
-
-        // Crisp 2.5D focal band: preserves lower plaques & foreground pedestals razor-sharp while softening extreme edges
-        float dy = max(0.0, 0.07 - vUv.y) * 1.4 + max(0.0, vUv.y - 0.86) * 1.4;
-        float coc = smoothstep(0.0, 0.22, dy);
-        vec3 col = mix(sharp, blurCol, coc * uDofStrength);
-
-        // Serene cerulean-ice sanctuary highlight bloom (NaN-proof)
-        vec3 hi = clamp(blurCol - vec3(uBloomThreshold), vec3(0.0), vec3(12.0));
+        vec3 hi = clamp(blurCol - vec3(uBloomThreshold), vec3(0.0), vec3(14.0));
         col += hi * uBloomTint * uBloomStrength;
 
-        float rDist = length((vUv - 0.5) * vec2(1.18, 1.0));
-        float vig = smoothstep(0.50, 0.99, rDist);
-        col = mix(col, mix(col * 0.60, uVignetteTint, 0.32), vig * 0.34);
+        float rDist = length((vUv - 0.5) * vec2(1.16, 1.0));
+        float vig = smoothstep(0.52, 1.02, rDist);
+        col = mix(col, mix(col * 0.48, uVignetteTint, 0.36), vig * 0.42);
 
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
@@ -135,6 +145,10 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
   fsScene.add(fsMesh);
 
   const lastStats = { calls: 0, triangles: 0 };
+
+  function setMotionBlur(strength = 0) {
+    compositeMat.uniforms.uMotionBlur.value = THREE.MathUtils.clamp(strength, 0, 1);
+  }
 
   function setSize(w, h, nextDpr = 1) {
     const nw = Math.max(1, Math.round(w * nextDpr));
@@ -196,9 +210,8 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
   return {
     group: new THREE.Group(),
     render,
+    setMotionBlur,
     setSize,
-    setBuildProgress() {},
-    update() {},
     getSceneStats: () => lastStats,
     dispose,
   };

@@ -1,136 +1,42 @@
 import * as THREE from 'three';
-import { applyWorldPlanarUVs, mergeClean, smooth01, xform } from './geo.js';
+import { applyWorldPlanarUVs, mergeClean, xform } from './geo.js';
+import { STAIR_CONFIG } from './spiralStaircase.js';
 
 /**
- * Independent Component: Sanctuary Island Plinth, Luminous Cloud Sea Horizon,
- * Polished Azure-Reflecting Nave Marble, Ceremonial Runner Carpet Climbing to the Dais,
- * and 16-Segment Genshin-Style Forward-Paving Approach Causeway.
+ * Independent Component: Grand Enclosed Sanctuary Floor, Cosmatesque Planar Reflection,
+ * Continuous Ceremonial Runner Carpet Ascending 5-Step Sovereign Dais,
+ * and 2nd-Floor Mezzanine Overlook Gallery & Triforium Balustrades.
  */
 export function createFoundationComponent(mats) {
   const group = new THREE.Group();
   group.name = 'foundation';
 
-  const slabBaseGroup = new THREE.Group();
-  const roadGroup = new THREE.Group();
+  const floorGroup = new THREE.Group();
   const carpetGroup = new THREE.Group();
   const daisGroup = new THREE.Group();
-  group.add(slabBaseGroup, roadGroup, carpetGroup, daisGroup);
+  const mezzGroup = new THREE.Group();
+  group.add(floorGroup, carpetGroup, daisGroup, mezzGroup);
 
-  const terraceWhiteGeos = [];
-  const terraceNavyGeos = [];
-  const terraceDarkGeos = [];
-
-  // 1. Stepped Sanctuary Island Plinth (supports wider WALL_X = 7.8 cathedral + buttresses)
-  const outerIsland = new THREE.BoxGeometry(26.5, 1.4, 38.0);
-  xform(outerIsland, [0, -1.35, -0.4]);
-  applyWorldPlanarUVs(outerIsland, 0.18, 0.18);
-  terraceNavyGeos.push(outerIsland);
-
-  const midCourtyard = new THREE.BoxGeometry(23.8, 0.45, 36.2);
-  xform(midCourtyard, [0, -0.45, -0.4]);
-  applyWorldPlanarUVs(midCourtyard, 0.24, 0.24);
-  terraceDarkGeos.push(midCourtyard);
-
-  for (const sx of [-11.65, 11.65]) {
-    const curb = new THREE.BoxGeometry(0.50, 0.36, 36.2);
-    xform(curb, [sx, -0.05, -0.4]);
-    applyWorldPlanarUVs(curb, 0.35, 0.35);
-    terraceWhiteGeos.push(curb);
-  }
-  const backCurb = new THREE.BoxGeometry(23.8, 0.36, 0.50);
-  xform(backCurb, [0, -0.05, -18.25]);
-  applyWorldPlanarUVs(backCurb, 0.35, 0.35);
-  terraceWhiteGeos.push(backCurb);
-
-  const subPlinth = new THREE.BoxGeometry(20.6, 0.45, 34.8);
-  xform(subPlinth, [0, -0.22, -0.8]);
-  applyWorldPlanarUVs(subPlinth, 0.26, 0.26);
-  terraceWhiteGeos.push(subPlinth);
-
-  const terraceWhiteMesh = new THREE.Mesh(mergeClean(terraceWhiteGeos), mats.whiteMarbleMat);
-  terraceWhiteMesh.receiveShadow = true;
-  terraceWhiteMesh.castShadow = true;
-  const terraceNavyMesh = new THREE.Mesh(mergeClean(terraceNavyGeos), mats.navyStoneMat);
-  terraceNavyMesh.receiveShadow = true;
-  const terraceDarkMesh = new THREE.Mesh(mergeClean(terraceDarkGeos), mats.matteBasaltMat);
-  terraceDarkMesh.receiveShadow = true;
-  slabBaseGroup.add(terraceWhiteMesh, terraceNavyMesh, terraceDarkMesh);
-
-  // 2. Luminous Clear-Sky Cloud Sea Plane + Soft Layered Sky Clouds around the island!
-  const cloudMat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    uniforms: {
-      uInnerColor: { value: new THREE.Color('#eef5ff') },
-      uMidColor: { value: new THREE.Color('#b6d2f8') },
-      uOuterColor: { value: new THREE.Color('#70a0e8') },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-    `,
-    fragmentShader: `
-      uniform vec3 uInnerColor;
-      uniform vec3 uMidColor;
-      uniform vec3 uOuterColor;
-      varying vec2 vUv;
-      void main() {
-        float d = length((vUv - 0.5) * 2.0);
-        float c1 = smoothstep(0.95, 0.20, d);
-        float c2 = smoothstep(0.58, 0.08, d);
-        vec3 col = mix(uOuterColor, uMidColor, c1);
-        col = mix(col, uInnerColor, c2);
-        float alpha = clamp(c1 * 0.85 + 0.12, 0.0, 0.94);
-        gl_FragColor = vec4(col, alpha);
-      }
-    `,
-  });
-  const cloudPlane = new THREE.Mesh(new THREE.PlaneGeometry(210, 210), cloudMat);
-  cloudPlane.rotation.x = -Math.PI / 2;
-  cloudPlane.position.set(0, -2.4, 16.0);
-  slabBaseGroup.add(cloudPlane);
-
-  // Stylized soft billowing sea-of-clouds wisps around plinth & bridge (zero hard box edges)
-  const wispMat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    uniforms: { uColor: { value: new THREE.Color('#f4f8ff') } },
-    vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `
-      uniform vec3 uColor;
-      varying vec2 vUv;
-      void main() {
-        float d = length((vUv - 0.5) * 2.0);
-        float a = smoothstep(1.0, 0.15, d);
-        gl_FragColor = vec4(uColor, a * a * 0.52);
-      }
-    `,
-  });
-  const wispGeo = new THREE.PlaneGeometry(1, 1);
-  const wispSpecs = [
-    [-22, -1.7, 10, 22, 26],
-    [24, -1.6, 12, 24, 28],
-    [-20, -1.8, -16, 26, 22],
-    [22, -1.9, -14, 24, 24],
-    [-16, -1.7, 36, 22, 22],
-    [16, -1.7, 38, 22, 22],
-  ];
-  for (const [wx, wy, wz, wsx, wsz] of wispSpecs) {
-    const wisp = new THREE.Mesh(wispGeo, wispMat);
-    wisp.rotation.x = -Math.PI / 2;
-    wisp.position.set(wx, wy, wz);
-    wisp.scale.set(wsx, wsz, 1);
-    slabBaseGroup.add(wisp);
-  }
-
-  // 3. Pew-Free Polished Inlaid Marble Nave Floor + Real-Time Planar Reflection (reflects azure stained glass!)
-  const naveFloorGeo = new THREE.PlaneGeometry(15.6, 31.4);
+  // 1. Enclosed Nave & Aisle Marble Floor (27.4m x 54.8m, strictly sealed)
+  const naveFloorGeo = new THREE.PlaneGeometry(27.6, 55.2);
   const naveFloor = new THREE.Mesh(naveFloorGeo, mats.naveInlayMat);
   naveFloor.rotation.x = -Math.PI / 2;
-  naveFloor.position.set(0, 0.01, -0.5);
+  naveFloor.position.set(0, 0.0, 1.2);
   naveFloor.receiveShadow = true;
-  slabBaseGroup.add(naveFloor);
+  floorGroup.add(naveFloor);
 
+  // Framed Carrara Marble Aisle Divider Bands
+  const floorTrimGeos = [];
+  for (const bx of [-4.2, 4.2, -9.2, 9.2]) {
+    const band = new THREE.BoxGeometry(0.28, 0.016, 48.0);
+    xform(band, [bx, 0.008, 2.0]);
+    floorTrimGeos.push(band);
+  }
+  const floorTrimMesh = new THREE.Mesh(mergeClean(floorTrimGeos), mats.floorTrimMat);
+  floorTrimMesh.receiveShadow = true;
+  floorGroup.add(floorTrimMesh);
+
+  // Subtle Nocturnal Planar Reflection (reflects stained-glass windows & warm sanctuary cone on polished marble)
   const reflRT = new THREE.WebGLRenderTarget(512, 384, {
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
@@ -145,8 +51,8 @@ export function createFoundationComponent(mats) {
     uniforms: {
       tRefl: { value: reflRT.texture },
       uTexMatrix: { value: texMatrix },
-      uReflStrength: { value: 0.21 },
-      uTint: { value: new THREE.Color('#0f234c') },
+      uReflStrength: { value: 0.16 },
+      uTint: { value: new THREE.Color('#050c20') },
     },
     vertexShader: `
       uniform mat4 uTexMatrix;
@@ -168,169 +74,204 @@ export function createFoundationComponent(mats) {
       void main() {
         vec2 uv = vReflUv.xy / max(0.0001, vReflUv.w);
         vec3 refl = texture2D(tRefl, clamp(uv, 0.002, 0.998)).rgb;
-        float edgeFade = smoothstep(0.0, 0.08, vUv.x) * smoothstep(1.0, 0.92, vUv.x)
-                       * smoothstep(0.0, 0.06, vUv.y) * smoothstep(1.0, 0.94, vUv.y);
-        vec3 col = mix(uTint, refl, 0.72);
+        float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x)
+                       * smoothstep(0.0, 0.05, vUv.y) * smoothstep(1.0, 0.95, vUv.y);
+        vec3 col = mix(uTint, refl, 0.76);
         gl_FragColor = vec4(col, uReflStrength * edgeFade);
       }
     `,
   });
 
-  const mirrorGeo = new THREE.PlaneGeometry(14.8, 29.0);
+  const mirrorGeo = new THREE.PlaneGeometry(26.0, 52.0);
   const mirrorMesh = new THREE.Mesh(mirrorGeo, mirrorMat);
   mirrorMesh.rotation.x = -Math.PI / 2;
-  mirrorMesh.position.set(0, 0.015, 0.2);
+  mirrorMesh.position.set(0, 0.012, 1.2);
   mirrorMesh.renderOrder = 1;
-  slabBaseGroup.add(mirrorMesh);
+  floorGroup.add(mirrorMesh);
 
-  // 4. Ceremonial Royal-Navy & White Woven Runner Carpet Starting Cleanly Deep Inside Nave (zero exterior doorway bleed!)
-  const portalMarbleThreshold = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.036, 2.3), mats.whiteMarbleMat);
-  portalMarbleThreshold.position.set(0, 0.018, 14.35);
-  portalMarbleThreshold.receiveShadow = true;
-  slabBaseGroup.add(portalMarbleThreshold);
+  // 2. Ceremonial Royal-Navy & Silver Runner Carpet (Z = +12.4 right under Staircase North Portal -> Z = -17.0)
+  const CARPET_W = 3.20;
+  const CARPET_START_Z = 12.6;
+  const DAIS_FRONT_Z = -17.0;
+  const flatLen = CARPET_START_Z - DAIS_FRONT_Z;
+  const flatMidZ = (CARPET_START_Z + DAIS_FRONT_Z) * 0.5;
 
-  const carpetFloorMesh = new THREE.Mesh(new THREE.BoxGeometry(2.65, 0.028, 22.8), mats.carpetMat);
-  carpetFloorMesh.position.set(0, 0.025, 1.40);
+  const carpetFloorMesh = new THREE.Mesh(new THREE.BoxGeometry(CARPET_W, 0.030, flatLen), mats.carpetMat);
+  carpetFloorMesh.position.set(0, 0.024, flatMidZ);
   carpetFloorMesh.receiveShadow = true;
   carpetFloorMesh.renderOrder = 2;
   carpetGroup.add(carpetFloorMesh);
 
   const silverCarpetGeos = [];
-  for (const cx of [-1.335, 1.335]) {
-    const edge = new THREE.BoxGeometry(0.032, 0.032, 22.8);
-    xform(edge, [cx, 0.026, 1.40]);
+  for (const cx of [-CARPET_W * 0.5 - 0.02, CARPET_W * 0.5 + 0.02]) {
+    const edge = new THREE.BoxGeometry(0.036, 0.034, flatLen);
+    xform(edge, [cx, 0.026, flatMidZ]);
     silverCarpetGeos.push(edge);
   }
-  const thresholdBar = new THREE.BoxGeometry(2.68, 0.032, 0.05);
-  xform(thresholdBar, [0, 0.028, 12.80]);
+  const thresholdBar = new THREE.BoxGeometry(CARPET_W + 0.06, 0.036, 0.06);
+  xform(thresholdBar, [0, 0.028, CARPET_START_Z]);
   silverCarpetGeos.push(thresholdBar);
 
-  // 5. Three-Tier Carrara Marble Sanctuary Dais + Continuous Climbing Altar Carpet up under Easel!
+  // 3. Five-Tier Carrara Marble & Obsidian Sovereign Dais (Z = -17.0 -> -24.8, top Y = 1.15)
   const daisWhiteGeos = [];
-  const stepSpecs = [
-    { w: 7.8, frontZ: -10.0, backZ: -14.8, h: 0.22, bottomY: 0.0 },
-    { w: 6.4, frontZ: -10.65, backZ: -14.8, h: 0.22, bottomY: 0.22 },
-    { w: 5.0, frontZ: -11.30, backZ: -14.8, h: 0.22, bottomY: 0.44 },
-  ];
+  const daisObsidianGeos = [];
+  const TIERS = 5;
+  const TIER_H = 0.23;
 
-  stepSpecs.forEach((st, idx) => {
-    const depth = Math.abs(st.backZ - st.frontZ);
-    const centerZ = (st.frontZ + st.backZ) * 0.5;
-    const centerY = st.bottomY + st.h * 0.5;
-    const riser = new THREE.BoxGeometry(st.w, st.h, depth);
+  for (let i = 0; i < TIERS; i++) {
+    const w = 11.4 - i * 0.85;
+    const frontZ = -17.0 - i * 0.65;
+    const backZ = -24.8;
+    const depth = Math.abs(backZ - frontZ);
+    const centerZ = (frontZ + backZ) * 0.5;
+    const bottomY = i * TIER_H;
+    const centerY = bottomY + TIER_H * 0.5;
+
+    const riser = new THREE.BoxGeometry(w, TIER_H, depth);
     xform(riser, [0, centerY, centerZ]);
-    applyWorldPlanarUVs(riser, 0.32, 0.32);
+    applyWorldPlanarUVs(riser, 0.30, 0.30);
     daisWhiteGeos.push(riser);
 
-    // Carpet vertical riser face + horizontal tread + polished silver stair rod!
-    const cRiser = new THREE.Mesh(new THREE.BoxGeometry(2.65, st.h + 0.02, 0.028), mats.carpetMat);
-    cRiser.position.set(0, centerY + 0.01, st.frontZ + 0.012);
+    const trim = new THREE.BoxGeometry(w + 0.06, 0.036, 0.07);
+    xform(trim, [0, bottomY + TIER_H - 0.014, frontZ + 0.02]);
+    daisObsidianGeos.push(trim);
+
+    // Carpet riser + stair rod + tread
+    const cRiser = new THREE.Mesh(new THREE.BoxGeometry(CARPET_W, TIER_H + 0.02, 0.032), mats.carpetMat);
+    cRiser.position.set(0, centerY + 0.01, frontZ + 0.014);
     cRiser.receiveShadow = true;
     cRiser.renderOrder = 2;
     carpetGroup.add(cRiser);
 
-    const rod = new THREE.CylinderGeometry(0.022, 0.022, 2.74, 10);
-    xform(rod, [0, st.bottomY + 0.022, st.frontZ + 0.028], [0, 0, Math.PI / 2]);
+    const rod = new THREE.CylinderGeometry(0.024, 0.024, CARPET_W + 0.10, 10);
+    xform(rod, [0, bottomY + 0.024, frontZ + 0.032], [0, 0, Math.PI / 2]);
     silverCarpetGeos.push(rod);
 
-    const treadNextZ = idx < 2 ? stepSpecs[idx + 1].frontZ : -14.15;
-    const treadLen = Math.abs(treadNextZ - st.frontZ) + 0.04;
-    const cTread = new THREE.Mesh(new THREE.BoxGeometry(2.65, 0.028, treadLen), mats.carpetMat);
-    cTread.position.set(0, st.bottomY + st.h + 0.016, (st.frontZ + treadNextZ) * 0.5);
+    const nextZ = i < TIERS - 1 ? -17.0 - (i + 1) * 0.65 : -23.0;
+    const treadLen = Math.abs(nextZ - frontZ) + 0.04;
+    const cTread = new THREE.Mesh(new THREE.BoxGeometry(CARPET_W, 0.030, treadLen), mats.carpetMat);
+    cTread.position.set(0, bottomY + TIER_H + 0.016, (frontZ + nextZ) * 0.5);
     cTread.receiveShadow = true;
     cTread.renderOrder = 2;
     carpetGroup.add(cTread);
-  });
+  }
 
-  const carpetTrimMesh = new THREE.Mesh(mergeClean(silverCarpetGeos), mats.silverTrimMat);
-  carpetGroup.add(carpetTrimMesh);
-
+  carpetGroup.add(new THREE.Mesh(mergeClean(silverCarpetGeos), mats.silverTrimMat));
   const daisWhiteMesh = new THREE.Mesh(mergeClean(daisWhiteGeos), mats.whiteMarbleMat);
   daisWhiteMesh.castShadow = true;
   daisWhiteMesh.receiveShadow = true;
-  daisGroup.add(daisWhiteMesh);
+  const daisTrimMesh = new THREE.Mesh(mergeClean(daisObsidianGeos), mats.floorTrimMat);
+  daisTrimMesh.receiveShadow = true;
+  daisGroup.add(daisWhiteMesh, daisTrimMesh);
 
-  // 6. 22-Segment Genshin-Style Forward-Paving Marble Causeway + 3 Entrance Steps (z = 59.6 .. 15.5)
-  const roadSegments = [];
-  const SEG_COUNT = 22;
-  const START_Z = 59.6;
-  const STEP_Z = 2.0;
+  // 4. 2nd-Floor Mezzanine & Side Triforium Gallery Deck (Y = 8.68 .. 9.20)
+  // Shape coords are transformed with rotateX(PI/2): local (x, y) -> world (x, y_local -> +z)
+  const mezzWhiteGeos = [];
+  const mezzObsGeos = [];
+  const mezzSilverGeos = [];
+  const MEZZ_Y = STAIR_CONFIG.mezzY;
+  const SLAB_THICK = 0.52;
 
-  for (let i = 0; i < SEG_COUNT; i++) {
-    const segZ = START_Z - i * STEP_Z;
-    const segGroup = new THREE.Group();
-    segGroup.position.set(0, 0, segZ);
+  const mezzShape = new THREE.Shape();
+  mezzShape.moveTo(-13.6, 10.8);
+  mezzShape.lineTo(13.6, 10.8);
+  mezzShape.lineTo(13.6, 28.5);
+  mezzShape.lineTo(-13.6, 28.5);
+  mezzShape.closePath();
 
-    const wGeos = [];
-    const nGeos = [];
+  // Circular stairwell hole at (0, +18.0), radius = rArcade (4.52m)
+  const wellHole = new THREE.Path();
+  wellHole.absarc(STAIR_CONFIG.centerX, STAIR_CONFIG.centerZ, STAIR_CONFIG.rArcade, 0, Math.PI * 2, true);
+  mezzShape.holes.push(wellHole);
 
-    // Main articulated Carrara bridge stone slab + crisp inlaid flanking curbs (clean marble surface!)
-    const slab = new THREE.BoxGeometry(6.4, 0.36, 1.92);
-    xform(slab, [0, -0.18, 0]);
-    applyWorldPlanarUVs(slab, 0.32, 0.32);
-    wGeos.push(slab);
+  const mainDeckGeo = new THREE.ExtrudeGeometry(mezzShape, { depth: SLAB_THICK, bevelEnabled: false, curveSegments: 48 });
+  mainDeckGeo.rotateX(Math.PI / 2);
+  mainDeckGeo.translate(0, MEZZ_Y, 0);
+  applyWorldPlanarUVs(mainDeckGeo, 0.22, 0.22);
+  mezzWhiteGeos.push(mainDeckGeo);
 
-    for (const rx of [-1.25, 1.25]) {
-      const borderInlay = new THREE.BoxGeometry(0.14, 0.03, 1.92);
-      xform(borderInlay, [rx, 0.012, 0]);
-      nGeos.push(borderInlay);
-    }
+  // Side Triforium Gallery Decks extending along |X| in [9.4, 13.6], Z in [-16.0, +10.8]
+  for (const side of [-1, 1]) {
+    const triSlab = new THREE.BoxGeometry(4.2, SLAB_THICK, 26.8);
+    xform(triSlab, [side * 11.5, MEZZ_Y - SLAB_THICK * 0.5, -2.6]);
+    applyWorldPlanarUVs(triSlab, 0.24, 0.24);
+    mezzWhiteGeos.push(triSlab);
 
-    for (const sx of [-3.35, 3.35]) {
-      const curb = new THREE.BoxGeometry(0.42, 0.44, 1.92);
-      xform(curb, [sx, -0.06, 0]);
-      applyWorldPlanarUVs(curb, 0.4, 0.4);
-      wGeos.push(curb);
-    }
+    // Sculpted Carrara & molded fascia beam facing central nave + Carved Gothic Pierced Balustrade
+    const fascia = new THREE.BoxGeometry(0.30, 0.56, 26.8);
+    xform(fascia, [side * 9.48, MEZZ_Y - 0.28, -2.6]);
+    applyWorldPlanarUVs(fascia, 0.35, 0.35);
+    mezzWhiteGeos.push(fascia);
 
-    // Slender Gothic sentinel pillars at regular intervals
-    if (i % 3 === 1 && i <= 19) {
-      for (const sx of [-3.38, 3.38]) {
-        const post = new THREE.BoxGeometry(0.42, 1.52, 0.42);
-        xform(post, [sx, 0.80, 0]);
-        applyWorldPlanarUVs(post, 0.45, 0.45);
-        wGeos.push(post);
-
-        const cap = new THREE.ConeGeometry(0.28, 0.48, 4);
-        xform(cap, [sx, 1.80, 0], [0, Math.PI / 4, 0]);
-        nGeos.push(cap);
+    const triPlinth = new THREE.BoxGeometry(0.24, 0.14, 26.8);
+    xform(triPlinth, [side * 9.55, MEZZ_Y + 0.07, -2.6]);
+    mezzWhiteGeos.push(triPlinth);
+    const triRail = new THREE.BoxGeometry(0.22, 0.11, 26.8);
+    xform(triRail, [side * 9.55, MEZZ_Y + 0.96, -2.6]);
+    mezzWhiteGeos.push(triRail);
+    const triSilver = new THREE.BoxGeometry(0.08, 0.04, 26.8);
+    xform(triSilver, [side * 9.55, MEZZ_Y + 1.03, -2.6]);
+    mezzSilverGeos.push(triSilver);
+    for (let bz = -15.4; bz <= 10.2; bz += 0.58) {
+      const bal = new THREE.CylinderGeometry(0.052, 0.064, 0.78, 10);
+      xform(bal, [side * 9.55, MEZZ_Y + 0.52, bz]);
+      mezzWhiteGeos.push(bal);
+      // Pointed Gothic tracery mini-arches uniting balustrade bays
+      if (bz < 9.7) {
+        const arc = new THREE.TorusGeometry(0.26, 0.036, 8, 12, Math.PI);
+        xform(arc, [side * 9.55, MEZZ_Y + 0.68, bz + 0.29], [0, Math.PI / 2, 0]);
+        mezzWhiteGeos.push(arc);
       }
     }
-
-    const wMesh = new THREE.Mesh(mergeClean(wGeos), mats.whiteMarbleMat);
-    wMesh.castShadow = true;
-    wMesh.receiveShadow = true;
-    const nMesh = new THREE.Mesh(mergeClean(nGeos), mats.navyStoneMat);
-    nMesh.castShadow = true;
-    nMesh.receiveShadow = true;
-    segGroup.add(wMesh, nMesh);
-
-    segGroup.userData.segZ = segZ;
-    roadGroup.add(segGroup);
-    roadSegments.push(segGroup);
   }
 
-  for (let s = 0; s < 3; s++) {
-    const stepZ = 16.95 - s * 0.62;
-    const stepGroup = new THREE.Group();
-    stepGroup.position.set(0, 0, stepZ);
-    const stepGeo = new THREE.BoxGeometry(6.8 - s * 0.45, 0.16, 0.72);
-    applyWorldPlanarUVs(stepGeo, 0.4, 0.4);
-    const stepMesh = new THREE.Mesh(stepGeo, mats.whiteMarbleMat);
-    stepMesh.position.y = 0.04 + s * 0.05;
-    stepMesh.castShadow = true;
-    stepMesh.receiveShadow = true;
-    stepGroup.add(stepMesh);
-    stepGroup.userData.segZ = stepZ;
-    roadGroup.add(stepGroup);
-    roadSegments.push(stepGroup);
+  // Grand Open-Tracery Marble North Overlook Balustrade at Z = +10.85, X in [-9.4, +9.4]
+  const overlookFascia = new THREE.BoxGeometry(19.2, 0.52, 0.34);
+  xform(overlookFascia, [0, MEZZ_Y - 0.26, 10.85]);
+  mezzWhiteGeos.push(overlookFascia);
+
+  const overlookBase = new THREE.BoxGeometry(19.2, 0.14, 0.28);
+  xform(overlookBase, [0, MEZZ_Y + 0.07, 10.90]);
+  mezzWhiteGeos.push(overlookBase);
+
+  const overlookRail = new THREE.BoxGeometry(19.2, 0.11, 0.24);
+  xform(overlookRail, [0, MEZZ_Y + 0.96, 10.90]);
+  mezzWhiteGeos.push(overlookRail);
+
+  const overlookSilver = new THREE.BoxGeometry(19.2, 0.04, 0.10);
+  xform(overlookSilver, [0, MEZZ_Y + 1.03, 10.90]);
+  mezzSilverGeos.push(overlookSilver);
+
+  for (let bx = -9.0; bx <= 9.0; bx += 0.50) {
+    if (Math.abs(Math.abs(bx) - 2.5) < 0.08 || Math.abs(Math.abs(bx) - 6.0) < 0.08 || Math.abs(Math.abs(bx) - 9.0) < 0.08) {
+      const pier = new THREE.BoxGeometry(0.26, 1.02, 0.28);
+      xform(pier, [bx, MEZZ_Y + 0.51, 10.90]);
+      mezzWhiteGeos.push(pier);
+    } else {
+      const bal = new THREE.CylinderGeometry(0.050, 0.062, 0.78, 10);
+      xform(bal, [bx, MEZZ_Y + 0.52, 10.90]);
+      mezzWhiteGeos.push(bal);
+      if (bx < 8.6) {
+        const arc = new THREE.TorusGeometry(0.22, 0.034, 8, 12, Math.PI);
+        xform(arc, [bx + 0.25, MEZZ_Y + 0.68, 10.90]);
+        mezzWhiteGeos.push(arc);
+      }
+    }
   }
+
+  const mezzWhiteMesh = new THREE.Mesh(mergeClean(mezzWhiteGeos), mats.whiteMarbleMat);
+  mezzWhiteMesh.castShadow = true;
+  mezzWhiteMesh.receiveShadow = true;
+  const mezzObsMesh = new THREE.Mesh(mergeClean(mezzObsGeos), mats.obsidianMat);
+  mezzObsMesh.castShadow = true;
+  mezzObsMesh.receiveShadow = true;
+  const mezzSilMesh = new THREE.Mesh(mergeClean(mezzSilverGeos), mats.silverTrimMat);
+  mezzGroup.add(mezzWhiteMesh, mezzObsMesh, mezzSilMesh);
 
   function updateReflection(renderer, scene, camera) {
-    if (slabBaseGroup.scale.y < 0.2) return;
     mirrorMesh.visible = false;
 
-    const planeY = 0.015;
+    const planeY = 0.012;
     mirrorCam.fov = camera.fov;
     mirrorCam.aspect = camera.aspect;
     mirrorCam.near = camera.near;
@@ -369,44 +310,14 @@ export function createFoundationComponent(mats) {
     mirrorMesh.visible = true;
   }
 
-  function setRoadProgress(roadP) {
-    // At roadP = 0, slabs up to z = 44 are solid while z = 44..34 visibly rise out of the clouds in full view!
-    // Uniform X/Z scale + pure vertical rise keeps flanking runner border rails dead-straight with zero zigzag!
-    const waveZ = THREE.MathUtils.lerp(42.0, 6.0, THREE.MathUtils.clamp(roadP, 0, 1));
-    for (let i = 0; i < roadSegments.length; i++) {
-      const seg = roadSegments[i];
-      const sz = seg.userData.segZ;
-      const pSeg = roadP >= 0.999 ? 1.0 : smooth01(sz + 3.8, sz - 9.5, waveZ);
-      seg.visible = pSeg > 0.01;
-      seg.position.y = (1 - pSeg) * -2.6;
-      seg.rotation.x = 0;
-      seg.scale.set(1, 1, 1);
-    }
-  }
-
-  function setBuildProgress(p, roadP = p) {
-    const pBase = smooth01(0.0, 0.25, p);
-    const pCarpet = smooth01(0.18, 0.55, p);
-    const pDais = smooth01(0.22, 0.50, p);
-
-    slabBaseGroup.position.y = (1 - pBase) * -1.2;
-    carpetGroup.position.y = (1 - pCarpet) * -0.4;
-    carpetGroup.visible = pCarpet > 0.02;
-    daisGroup.position.y = (1 - pDais) * -0.9;
-    daisGroup.visible = pDais > 0.02;
-
-    setRoadProgress(roadP);
-  }
-
   function update() {}
 
   function dispose() {
     reflRT.dispose();
     mirrorMat.dispose();
-    cloudMat.dispose();
     mirrorGeo.dispose();
     naveFloorGeo.dispose();
   }
 
-  return { group, setBuildProgress, setRoadProgress, update, updateReflection, dispose };
+  return { group, update, updateReflection, dispose };
 }

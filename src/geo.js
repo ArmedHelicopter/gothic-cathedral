@@ -135,3 +135,31 @@ export function buildDiagonalVaultRib(p0, p1, apexLift = 4.85, width = 0.14, dep
   applyWorldPlanarUVs(geo, 0.45, 0.45);
   return [geo];
 }
+
+/**
+ * Generates an EdgesGeometry with normalized per-vertex `aOrder` attribute (top-down sweep)
+ * so the real loading wireframe progressively traces architecture from 0% -> 100%.
+ */
+export function buildOrderedWireframe(
+  mergedGeo,
+  thresholdAngle = 22,
+  minY = 0,
+  maxY = 24.5,
+  orderStart = 0.0,
+  orderEnd = 1.0
+) {
+  const edges = new THREE.EdgesGeometry(mergedGeo, thresholdAngle);
+  const pos = edges.attributes.position;
+  const order = new Float32Array(pos.count);
+  const invSpan = 1 / Math.max(0.001, maxY - minY);
+  const spanOrder = orderEnd - orderStart;
+  for (let i = 0; i < pos.count; i += 2) {
+    const ym = (pos.getY(i) + pos.getY(i + 1)) * 0.5;
+    const t = Math.max(0, Math.min(1, (maxY - ym) * invSpan));
+    const v = orderStart + spanOrder * t;
+    order[i] = v;
+    order[i + 1] = v;
+  }
+  edges.setAttribute('aOrder', new THREE.BufferAttribute(order, 1));
+  return edges;
+}

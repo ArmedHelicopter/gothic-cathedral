@@ -2,123 +2,116 @@ import * as THREE from 'three';
 import { applyWorldPlanarUVs, mergeClean, smooth01, xform } from './geo.js';
 
 /**
- * Independent Component: Tall Classical Studio A-Frame Artist Easel (2 splayed front legs + rear prop + tall upper mast/clamp),
- * Unfinished Azure Sanctuary Canvas & Soft Fluid Draped Linen Drop-Cloth (curved shoulder + smooth diagonal hem).
+ * Independent Component: Sovereign Sanctuary Easel & Chiaroscuro Masterpiece (CANVAS 3.6m x 4.8m),
+ * framed in sculpted Carrara stone, honed obsidian timber & champagne-gilt metalwork,
+ * with a refined 25% upper-left silk drape revealing the commanding royal composition beneath.
  */
 export function createVeiledPaintingComponent(textures, mats) {
   const group = new THREE.Group();
   group.name = 'veiledPainting';
-  group.position.set(0, 0.68, -12.3);
+  group.position.set(0, 1.15, -20.5);
 
   const easelGroup = new THREE.Group();
   const canvasGroup = new THREE.Group();
   const shroudGroup = new THREE.Group();
   group.add(easelGroup, canvasGroup, shroudGroup);
 
-  const CANVAS_W = 2.18;
-  const CANVAS_H = 2.82;
-  const CANVAS_CENTER_Y = 2.78;
-  const TILT_RAD = -0.075;
+  const CANVAS_W = 3.60;
+  const CANVAS_H = 4.80;
+  const CANVAS_CENTER_Y = 4.30;
+  const TILT_RAD = -0.062;
 
-  // 1. Classical Studio A-Frame Easel: 2 tall splayed A-frame legs (no 3rd center leg!) + shelf at y=1.30 + upper ratcheted mast to y=5.20
+  // 1. Sculpted Architectural Easel Frame (octagonal bronze-obsidian uprights + Carrara shoes + champagne-gilt finials)
   const easelDark = [];
-  const easelSilver = [];
-  const easelWhite = [];
+  const easelGilt = [];
+  const easelMarble = [];
 
-  for (const [lx, tiltZ] of [[-0.86, -0.145], [0.86, 0.145]]) {
-    const leg = new THREE.BoxGeometry(0.13, 5.28, 0.15);
-    xform(leg, [lx * 0.56, 2.58, 0.14], [TILT_RAD, 0, tiltZ]);
-    applyWorldPlanarUVs(leg, 0.5, 0.5);
+  for (const [lx, tiltZ] of [[-1.42, -0.13], [1.42, 0.13]]) {
+    const leg = new THREE.CylinderGeometry(0.11, 0.13, 7.65, 8);
+    xform(leg, [lx * 0.56, 3.74, 0.22], [TILT_RAD, 0, tiltZ]);
+    applyWorldPlanarUVs(leg, 0.45, 0.45);
     easelDark.push(leg);
 
-    const foot = new THREE.BoxGeometry(0.24, 0.09, 0.28);
-    xform(foot, [lx, 0.045, 0.33]);
-    easelDark.push(foot);
+    const shoeBase = new THREE.CylinderGeometry(0.24, 0.28, 0.14, 8);
+    xform(shoeBase, [lx, 0.07, 0.48]);
+    easelMarble.push(shoeBase);
+
+    const shoeCollar = new THREE.CylinderGeometry(0.15, 0.19, 0.12, 8);
+    xform(shoeCollar, [lx, 0.18, 0.48]);
+    easelGilt.push(shoeCollar);
   }
 
-  // Upper center mast starts at shelf y = 1.28 and rises proudly up to y = 5.20 (clearly A-frame, NOT a 3-leg bench!)
-  const upperMast = new THREE.BoxGeometry(0.15, 3.92, 0.15);
-  xform(upperMast, [0, 3.24, -0.02], [TILT_RAD, 0, 0]);
+  const upperMast = new THREE.CylinderGeometry(0.12, 0.14, 5.80, 8);
+  xform(upperMast, [0, 4.78, -0.02], [TILT_RAD, 0, 0]);
   easelDark.push(upperMast);
 
-  const apexCrown = new THREE.BoxGeometry(0.32, 0.14, 0.22);
-  xform(apexCrown, [0, 5.18, -0.16], [TILT_RAD, 0, 0]);
+  const apexCrown = new THREE.BoxGeometry(0.56, 0.22, 0.32);
+  xform(apexCrown, [0, 7.62, -0.20], [TILT_RAD, 0, 0]);
   easelDark.push(apexCrown);
+  const apexMold = new THREE.BoxGeometry(0.64, 0.07, 0.36);
+  xform(apexMold, [0, 7.75, -0.21], [TILT_RAD, 0, 0]);
+  easelGilt.push(apexMold);
+  // Smooth continuous bronze-gold crown orb mounted directly atop apexMold stem
+  const crownStem = new THREE.CylinderGeometry(0.05, 0.07, 0.18, 10);
+  xform(crownStem, [0, 7.86, -0.22]);
+  easelGilt.push(crownStem);
+  const crownOrb = new THREE.SphereGeometry(0.13, 16, 12);
+  xform(crownOrb, [0, 8.01, -0.22]);
+  easelGilt.push(crownOrb);
 
-  const topClamp = new THREE.BoxGeometry(0.34, 0.16, 0.26);
-  xform(topClamp, [0, 4.28, 0.09], [TILT_RAD, 0, 0]);
+  const topClamp = new THREE.BoxGeometry(0.62, 0.24, 0.38);
+  xform(topClamp, [0, 6.82, 0.16], [TILT_RAD, 0, 0]);
   easelDark.push(topClamp);
-  const topClampPlate = new THREE.BoxGeometry(0.36, 0.035, 0.28);
-  xform(topClampPlate, [0, 4.24, 0.09], [TILT_RAD, 0, 0]);
-  easelSilver.push(topClampPlate);
+  const topClampPlate = new THREE.BoxGeometry(0.66, 0.06, 0.42);
+  xform(topClampPlate, [0, 6.72, 0.16], [TILT_RAD, 0, 0]);
+  easelGilt.push(topClampPlate);
 
-  // Lower horizontal structural tie bar tying the two A-frame legs cleanly at ankle height
-  const lowerBar = new THREE.BoxGeometry(1.56, 0.10, 0.12);
-  xform(lowerBar, [0, 0.68, 0.24], [TILT_RAD, 0, 0]);
+  const lowerBar = new THREE.BoxGeometry(2.50, 0.14, 0.16);
+  xform(lowerBar, [0, 0.96, 0.36], [TILT_RAD, 0, 0]);
   easelDark.push(lowerBar);
 
-  // Rear A-frame prop leg extending cleanly to rear foot pad
-  const rearStrut = new THREE.BoxGeometry(0.14, 4.85, 0.14);
-  xform(rearStrut, [0, 2.24, -0.94], [0.40, 0, 0]);
+  const rearStrut = new THREE.CylinderGeometry(0.11, 0.13, 7.0, 8);
+  xform(rearStrut, [0, 3.22, -1.36], [0.38, 0, 0]);
   easelDark.push(rearStrut);
 
-  const rearFoot = new THREE.BoxGeometry(0.24, 0.09, 0.28);
-  xform(rearFoot, [0, 0.045, -1.86]);
-  easelDark.push(rearFoot);
+  const rearShoe = new THREE.CylinderGeometry(0.24, 0.28, 0.14, 8);
+  xform(rearShoe, [0, 0.07, -2.68]);
+  easelMarble.push(rearShoe);
 
-  // Canvas shelf ledge cleanly flush to canvas width (y = 1.32 -> tall graceful leg stance underneath!)
-  const ledge = new THREE.BoxGeometry(2.38, 0.13, 0.32);
-  xform(ledge, [0, 1.32, 0.33], [TILT_RAD, 0, 0]);
-  applyWorldPlanarUVs(ledge, 0.5, 0.5);
+  const ledge = new THREE.BoxGeometry(4.02, 0.20, 0.46);
+  xform(ledge, [0, 1.84, 0.46], [TILT_RAD, 0, 0]);
+  applyWorldPlanarUVs(ledge, 0.45, 0.45);
   easelDark.push(ledge);
 
-  const ledgeTrim = new THREE.BoxGeometry(2.39, 0.026, 0.03);
-  xform(ledgeTrim, [0, 1.36, 0.49], [TILT_RAD, 0, 0]);
-  easelSilver.push(ledgeTrim);
-
-  // Ceramic brush jar + 3 studio brushes on right end of shelf + flat palette on left
-  const brushPot = new THREE.CylinderGeometry(0.072, 0.060, 0.14, 12);
-  xform(brushPot, [0.98, 1.45, 0.38]);
-  easelWhite.push(brushPot);
-
-  for (const [bx, rz] of [[0.96, -0.18], [0.98, 0.05], [1.00, 0.22]]) {
-    const brushShaft = new THREE.CylinderGeometry(0.009, 0.007, 0.26, 6);
-    xform(brushShaft, [bx, 1.56, 0.38], [0.08, 0, rz]);
-    easelDark.push(brushShaft);
-    const tip = new THREE.ConeGeometry(0.012, 0.034, 6);
-    xform(tip, [bx - rz * 0.12, 1.68, 0.39], [0.08, 0, rz]);
-    easelWhite.push(tip);
-  }
-
-  const paletteDisc = new THREE.CylinderGeometry(0.16, 0.16, 0.02, 16);
-  paletteDisc.scale(1.2, 1, 0.85);
-  xform(paletteDisc, [-0.94, 1.39, 0.38], [0.06, 0.3, 0]);
-  easelWhite.push(paletteDisc);
+  const ledgeTrim = new THREE.BoxGeometry(4.06, 0.055, 0.06);
+  xform(ledgeTrim, [0, 1.91, 0.69], [TILT_RAD, 0, 0]);
+  easelGilt.push(ledgeTrim);
 
   const easelDarkMesh = new THREE.Mesh(mergeClean(easelDark), mats.obsidianMat);
   easelDarkMesh.castShadow = true;
   easelDarkMesh.receiveShadow = true;
-  const easelSilverMesh = new THREE.Mesh(mergeClean(easelSilver), mats.silverTrimMat);
-  const easelWhiteMesh = new THREE.Mesh(mergeClean(easelWhite), mats.brightAlabasterMat);
-  easelGroup.add(easelDarkMesh, easelSilverMesh, easelWhiteMesh);
+  const easelGiltMesh = new THREE.Mesh(mergeClean(easelGilt), mats.giltBronzeMat);
+  const easelMarbleMesh = new THREE.Mesh(mergeClean(easelMarble), mats.brightAlabasterMat);
+  easelGroup.add(easelDarkMesh, easelGiltMesh, easelMarbleMesh);
 
-  // 2. Stretched Unfinished Canvas Frame
+  // 2. Monumental Sovereign Canvas + Dual-Stepped Champagne-Gilt & Obsidian Frame
   const easelTiltGroup = new THREE.Group();
-  easelTiltGroup.position.set(0, CANVAS_CENTER_Y, 0.21);
+  easelTiltGroup.position.set(0, CANVAS_CENTER_Y, 0.30);
   easelTiltGroup.rotation.x = TILT_RAD;
   canvasGroup.add(easelTiltGroup);
 
   const canvasTex = textures.unfinishedCanvasTex('sanctuary-unfinished-canvas');
   const canvasMat = new THREE.MeshStandardMaterial({
     map: canvasTex,
-    roughness: 0.78,
-    metalness: 0.02,
+    roughness: 0.62,
+    metalness: 0.04,
+    envMapIntensity: 0.55,
   });
-  const canvasBox = new THREE.Mesh(new THREE.BoxGeometry(CANVAS_W, CANVAS_H, 0.10), [
-    mats.whiteMarbleMat,
-    mats.whiteMarbleMat,
-    mats.whiteMarbleMat,
-    mats.whiteMarbleMat,
+  const canvasBox = new THREE.Mesh(new THREE.BoxGeometry(CANVAS_W, CANVAS_H, 0.14), [
+    mats.giltBronzeMat,
+    mats.giltBronzeMat,
+    mats.giltBronzeMat,
+    mats.giltBronzeMat,
     canvasMat,
     mats.matteBasaltMat,
   ]);
@@ -126,66 +119,85 @@ export function createVeiledPaintingComponent(textures, mats) {
   canvasBox.receiveShadow = true;
   easelTiltGroup.add(canvasBox);
 
-  // 3. Soft Flowing Linen Drop-Cloth (natural slumped rounded shoulders, ZERO 90-degree rigid plastic box corner!)
+  const frameObs = [];
+  const frameGilt = [];
+  const fThick = 0.22;
+  const fDepth = 0.24;
+  for (const [w, h, px, py] of [
+    [CANVAS_W + fThick * 2, fThick, 0, CANVAS_H * 0.5 + fThick * 0.42],
+    [CANVAS_W + fThick * 2, fThick, 0, -CANVAS_H * 0.5 - fThick * 0.42],
+    [fThick, CANVAS_H, -CANVAS_W * 0.5 - fThick * 0.42, 0],
+    [fThick, CANVAS_H, CANVAS_W * 0.5 + fThick * 0.42, 0],
+  ]) {
+    const b = new THREE.BoxGeometry(w, h, fDepth);
+    xform(b, [px, py, 0.03]);
+    frameObs.push(b);
+  }
+  const gThick = 0.07;
+  for (const [w, h, px, py] of [
+    [CANVAS_W + gThick * 2, gThick, 0, CANVAS_H * 0.5 + gThick * 0.3],
+    [CANVAS_W + gThick * 2, gThick, 0, -CANVAS_H * 0.5 - gThick * 0.3],
+    [gThick, CANVAS_H, -CANVAS_W * 0.5 - gThick * 0.3, 0],
+    [gThick, CANVAS_H, CANVAS_W * 0.5 + gThick * 0.3, 0],
+  ]) {
+    const g = new THREE.BoxGeometry(w, h, fDepth + 0.04);
+    xform(g, [px, py, 0.04]);
+    frameGilt.push(g);
+  }
+  const frameObsMesh = new THREE.Mesh(mergeClean(frameObs), mats.obsidianMat);
+  frameObsMesh.castShadow = true;
+  const frameGiltMesh = new THREE.Mesh(mergeClean(frameGilt), mats.giltBronzeMat);
+  easelTiltGroup.add(frameObsMesh, frameGiltMesh);
+
+  // 3. Sculpted Ivory-Silk Corner Veil (~25% upper-left corner swag so ~75% of the Royal Painting commands the hall!)
   const shroudTiltGroup = new THREE.Group();
-  shroudTiltGroup.position.set(0, CANVAS_CENTER_Y, 0.21);
+  shroudTiltGroup.position.set(0, CANVAS_CENTER_Y, 0.30);
   shroudTiltGroup.rotation.x = TILT_RAD;
   shroudGroup.add(shroudTiltGroup);
 
-  const SEGS_X = 84;
-  const SEGS_Y = 96;
-  const clothGeo = new THREE.PlaneGeometry(CANVAS_W + 0.26, CANVAS_H + 0.08, SEGS_X, SEGS_Y);
+  const clothW = CANVAS_W * 0.62;
+  const clothH = CANVAS_H * 0.68;
+  const SEGS_X = 64;
+  const SEGS_Y = 72;
+  const clothGeo = new THREE.PlaneGeometry(clothW, clothH, SEGS_X, SEGS_Y);
   const posAttr = clothGeo.attributes.position;
   const baseZ = new Float32Array(posAttr.count);
   const baseX = new Float32Array(posAttr.count);
   const baseY = new Float32Array(posAttr.count);
 
-  const halfW = (CANVAS_W + 0.26) * 0.5;
-  const halfH = (CANVAS_H + 0.08) * 0.5;
+  const halfW = clothW * 0.5;
+  const halfH = clothH * 0.5;
+  const xOff = -CANVAS_W * 0.21;
+  const yOff = CANVAS_H * 0.17;
 
   for (let i = 0; i < posAttr.count; i++) {
-    let x = posAttr.getX(i);
-    let y = posAttr.getY(i);
-    const u = (x + halfW) / (2 * halfW); // 0 = left, 1 = right
-    const v = (y + halfH) / (2 * halfH); // 0 = bottom, 1 = top
+    let lx = posAttr.getX(i);
+    let ly = posAttr.getY(i);
+    const u = (lx + halfW) / clothW; // 0=outer-left edge, 1=inner-right edge
+    const v = (ly + halfH) / clothH; // 0=bottom hem, 1=top corner
 
-    // Diagonal sweep lifting lower-right cloth gracefully upward-left to reveal unfinished canvas
-    const revealMask = Math.pow(smooth01(0.22, 0.96, u) * smooth01(0.98, 0.0, v), 1.38);
-    y += revealMask * (1.62 * smooth01(0.0, 0.94, 1.0 - v * 0.35));
-    x -= revealMask * 0.36;
+    // Diagonal sweep peeling back right & bottom edges into soft gathered folds
+    const peel = Math.pow(smooth01(0.08, 0.96, u) * smooth01(0.95, 0.05, v), 1.15);
+    lx -= peel * 0.95;
+    ly += peel * 1.45;
 
-    // Rounded organic draped shoulders (eliminates boxy 90-degree plastic corner!)
-    const shoulder = smooth01(0.76, 1.0, v);
-    const edgeFactor = Math.pow(Math.abs(u - 0.5) * 2.0, 1.6);
-    y -= shoulder * edgeFactor * 0.26;
-    x -= Math.sign(x) * shoulder * edgeFactor * 0.10;
-
-    if (u < 0.20) {
-      const edgeT = 1 - u / 0.20;
-      x -= smooth01(0.84, 0.0, v) * 0.04 * edgeT;
-      y -= smooth01(0.72, 0.0, v) * 0.03 * edgeT;
-    }
-
-    let z = 0.172;
-    if (v > 0.86) {
-      const topT = smooth01(0.86, 1.0, v);
-      z = THREE.MathUtils.lerp(0.172, -0.095, topT);
-      y -= topT * 0.12;
+    // Rounded shoulder over top frame lip
+    let z = 0.25;
+    if (v > 0.88) {
+      const topT = smooth01(0.88, 1.0, v);
+      z = THREE.MathUtils.lerp(0.25, -0.14, topT);
+      ly -= topT * 0.14;
     } else {
-      const topSag = Math.sin(u * Math.PI) * 0.048 * smooth01(0.55, 0.86, v);
-      y -= topSag;
+      ly -= Math.sin(u * Math.PI) * 0.06 * smooth01(0.55, 0.88, v);
     }
+    const leftWrap = smooth01(0.14, 0.0, u);
+    z -= leftWrap * 0.22;
 
-    const sideWrap = smooth01(0.86, 1.0, Math.abs(x) / halfW) * (1 - revealMask * 0.92);
-    z -= sideWrap * 0.12;
-
-    const hangFade = smooth01(1.0, 0.68, v);
-    const vertFoldA = Math.sin(u * 15.0 + Math.sin(v * 2.3) * 0.5) * 0.055;
-    const vertFoldB = Math.sin(u * 29.0 - v * 2.2 + 0.6) * 0.022;
-    const radialFold = Math.sin((u * 1.25 - v * 0.85) * 18.0) * 0.046 * Math.pow(revealMask, 0.72);
-    const sweptBillow = Math.sin(revealMask * Math.PI) * 0.15;
-
-    z += (vertFoldA + vertFoldB) * (0.28 + 0.72 * hangFade) + radialFold + sweptBillow;
+    const swagFold = Math.sin((u * 1.4 - v * 0.9) * 16.0) * 0.085 * (0.35 + 0.65 * smooth01(0.9, 0.1, v));
+    const microFold = Math.sin(u * 26.0 + v * 6.0) * 0.028;
+    const x = lx + xOff;
+    const y = ly + yOff;
+    z += swagFold + microFold;
 
     posAttr.setXYZ(i, x, y, z);
     baseX[i] = x;
@@ -200,30 +212,17 @@ export function createVeiledPaintingComponent(textures, mats) {
   shroudTiltGroup.add(clothMesh);
 
   const hitMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(2.8, 4.2, 1.2),
+    new THREE.BoxGeometry(4.4, 6.2, 1.6),
     new THREE.MeshBasicMaterial({ visible: false })
   );
-  hitMesh.position.set(0, CANVAS_CENTER_Y, 0.21);
+  hitMesh.position.set(0, CANVAS_CENTER_Y, 0.30);
   hitMesh.userData.exhibitId = 'unfinished-opus';
   group.add(hitMesh);
 
-  function setBuildProgress(p) {
-    const pEasel = smooth01(0.22, 0.52, p);
-    const pCanvas = smooth01(0.32, 0.58, p);
-    const pShroud = smooth01(0.42, 0.68, p);
-
-    easelGroup.position.y = (1 - pEasel) * -1.4;
-    easelGroup.visible = pEasel > 0.02;
-    canvasGroup.position.y = (1 - pCanvas) * 1.2;
-    canvasGroup.visible = pCanvas > 0.02;
-    shroudGroup.position.y = (1 - pShroud) * 1.8;
-    shroudGroup.visible = pShroud > 0.02;
-  }
-
   function update(dt, elapsed) {
     for (let i = 0; i < posAttr.count; i++) {
-      const yNorm = THREE.MathUtils.clamp(1.0 - (baseY[i] + halfH) / (2 * halfH), 0, 1);
-      const sway = Math.sin(elapsed * 1.2 + baseX[i] * 2.0 + baseY[i] * 1.3) * 0.011 * yNorm * yNorm;
+      const yNorm = THREE.MathUtils.clamp(1.0 - (baseY[i] - yOff + halfH) / clothH, 0, 1);
+      const sway = Math.sin(elapsed * 1.2 + baseX[i] * 1.5 + baseY[i] * 1.0) * 0.014 * yNorm * yNorm;
       posAttr.setZ(i, baseZ[i] + sway);
     }
     posAttr.needsUpdate = true;
@@ -237,8 +236,7 @@ export function createVeiledPaintingComponent(textures, mats) {
   return {
     group,
     hitMesh,
-    pinAnchor: [0, 5.25, -12.3],
-    setBuildProgress,
+    pinAnchor: [0, 8.95, -20.5],
     update,
     dispose,
   };

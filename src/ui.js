@@ -2,18 +2,20 @@ import * as THREE from 'three';
 import { CENTERPIECE, PROJECTS } from './data.js';
 
 /**
- * Minimalist Navy/Black/White Museum HUD, 3D Floating Cloche Pins & Exhibit Card Stepper.
+ * Restrained Navy/Silver Sanctuary Museum HUD, Wireframe Loader Readout,
+ * Selected Preset Camera Switcher & 3D Floating Cloche Pins.
  */
 export function createUIController({
   pinAnchors,
   onSelectExhibit,
   onStepExhibit,
-  onResetGallery,
-  onResetInterior,
-  onResetExterior,
+  onPresetSelect,
   onToggleScrollMode,
-  onReplayIntro,
+  onReplayDive,
 }) {
+  const loadPctEl = document.getElementById('load-pct');
+  const loadBarFillEl = document.getElementById('load-bar-fill');
+
   const pinsLayer = document.getElementById('pins-layer');
   const dockEl = document.getElementById('exhibit-dock');
   const cardEl = document.getElementById('exhibit-card');
@@ -28,19 +30,24 @@ export function createUIController({
   const cardPrevBtn = document.getElementById('card-prev-btn');
   const cardNextBtn = document.getElementById('card-next-btn');
 
-  const btnGallery = document.getElementById('btn-gallery');
-  const btnInterior = document.getElementById('btn-interior');
-  const btnExterior = document.getElementById('btn-exterior');
+  const presetButtons = {
+    sovereign: document.getElementById('btn-preset-sovereign'),
+    masterpiece: document.getElementById('btn-preset-masterpiece'),
+    mezzanine: document.getElementById('btn-preset-mezzanine'),
+    stainedGlass: document.getElementById('btn-preset-stainedglass'),
+    spiralWell: document.getElementById('btn-preset-spiral'),
+  };
+
   const btnScrollMode = document.getElementById('btn-scroll-mode');
-  const btnReplay = document.getElementById('btn-replay');
+  const btnReplay = document.getElementById('btn-replay-dive');
 
   const allExhibits = [CENTERPIECE, ...PROJECTS];
   const dockBtns = new Map();
   const pinItems = [];
   const projVec = new THREE.Vector3();
 
-  // Build 3D projected floating pins above every exhibit pedestal + centerpiece
-  if (pinsLayer && pinAnchors) {
+  if (pinsLayer && pinAnchors && Object.keys(pinAnchors).length > 0) {
+    pinsLayer.innerHTML = '';
     allExhibits.forEach((ex) => {
       const anchorArr = pinAnchors[ex.id];
       if (!anchorArr) return;
@@ -50,15 +57,14 @@ export function createUIController({
       pinBtn.dataset.exhibitId = ex.id;
       const shortName = ex.id === 'unfinished-opus' ? '未竟之作' : ex.name;
       pinBtn.innerHTML = `<span class="pin-idx">${ex.index}</span><span class="pin-label">${shortName}</span>`;
-      pinBtn.addEventListener('click', () => {
-        onSelectExhibit?.(ex.id);
-      });
+      pinBtn.addEventListener('click', () => onSelectExhibit?.(ex.id));
       pinsLayer.appendChild(pinBtn);
       pinItems.push({ id: ex.id, el: pinBtn, anchor: new THREE.Vector3(...anchorArr) });
     });
   }
 
-  if (dockEl) {
+  if (dockEl && Object.keys(pinAnchors || {}).length > 0) {
+    dockEl.innerHTML = '';
     allExhibits.forEach((ex) => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -67,11 +73,21 @@ export function createUIController({
       btn.innerHTML = `<span class="chip-num">${ex.index}</span><span class="chip-name">${
         ex.id === 'unfinished-opus' ? '未竟之作' : ex.name
       }</span>`;
-      btn.addEventListener('click', () => {
-        onSelectExhibit?.(ex.id);
-      });
+      btn.addEventListener('click', () => onSelectExhibit?.(ex.id));
       dockEl.appendChild(btn);
       dockBtns.set(ex.id, btn);
+    });
+  }
+
+  function setLoadProgress(p01) {
+    const pct = Math.max(0, Math.min(100, Math.round(p01 * 100)));
+    if (loadPctEl) loadPctEl.textContent = `${String(pct).padStart(2, '0')}%`;
+    if (loadBarFillEl) loadBarFillEl.style.width = `${pct}%`;
+  }
+
+  function setActivePreset(presetKey) {
+    Object.entries(presetButtons).forEach(([k, btn]) => {
+      btn?.classList.toggle('is-active', k === presetKey);
     });
   }
 
@@ -117,10 +133,12 @@ export function createUIController({
       return;
     }
     pinsLayer.style.opacity = '1';
+    const candidates = [];
     for (let i = 0; i < pinItems.length; i++) {
       const item = pinItems[i];
+      const dist = camera.position.distanceTo(item.anchor);
       projVec.copy(item.anchor).project(camera);
-      if (projVec.z < -1 || projVec.z > 1) {
+      if (projVec.z < -1 || projVec.z > 1 || dist > 38) {
         item.el.style.opacity = '0';
         item.el.style.pointerEvents = 'none';
         continue;
@@ -131,16 +149,29 @@ export function createUIController({
         item.el.style.opacity = '0';
         item.el.style.pointerEvents = 'none';
       } else {
-        item.el.style.opacity = '1';
-        item.el.style.pointerEvents = 'auto';
-        item.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -100%)`;
+        candidates.push({ item, x, y, dist });
       }
+    }
+
+    // De-overlap distant pins smoothly front-to-back so low-angle axial views stay legible
+    candidates.sort((a, b) => a.dist - b.dist);
+    const placed = [];
+    for (let i = 0; i < candidates.length; i++) {
+      const c = candidates[i];
+      let py = c.y;
+      while (placed.some((p) => Math.abs(c.x - p.x) < 168 && Math.abs(py - p.y) < 30) && py > 92) {
+        py -= 30;
+      }
+      placed.push({ x: c.x, y: py });
+      c.item.el.style.opacity = '1';
+      c.item.el.style.pointerEvents = 'auto';
+      c.item.el.style.transform = `translate3d(${c.x.toFixed(1)}px, ${py.toFixed(1)}px, 0) translate(-50%, -100%)`;
     }
   }
 
   function syncScrollMode(tourEnabled) {
     if (!btnScrollMode) return;
-    btnScrollMode.textContent = tourEnabled ? '滚轮 · 巡览展品' : '滚轮 · 缩放';
+    btnScrollMode.textContent = tourEnabled ? '滚轮 · 巡览展品' : '滚轮 · 视野缩放';
     btnScrollMode.classList.toggle('is-active', Boolean(tourEnabled));
   }
 
@@ -156,29 +187,23 @@ export function createUIController({
   cardPrevBtn?.addEventListener('click', () => onStepExhibit?.(-1));
   cardNextBtn?.addEventListener('click', () => onStepExhibit?.(1));
 
-  btnGallery?.addEventListener('click', () => {
-    closeExhibit();
-    onResetGallery?.();
-  });
-
-  btnInterior?.addEventListener('click', () => {
-    closeExhibit();
-    onResetInterior?.();
-  });
-
-  btnExterior?.addEventListener('click', () => {
-    closeExhibit();
-    onResetExterior?.();
+  Object.entries(presetButtons).forEach(([key, btn]) => {
+    btn?.addEventListener('click', () => {
+      closeExhibit();
+      onPresetSelect?.(key);
+    });
   });
 
   btnScrollMode?.addEventListener('click', () => onToggleScrollMode?.());
 
   btnReplay?.addEventListener('click', () => {
     closeExhibit();
-    onReplayIntro?.();
+    onReplayDive?.();
   });
 
   return {
+    setLoadProgress,
+    setActivePreset,
     showExhibit,
     closeExhibit,
     updatePins,

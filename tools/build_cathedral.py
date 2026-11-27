@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Builds a 100% self-contained single-file HTML for the 2.5D Minimalist Gothic Cathedral
-and Open-Source Museum (`cathedral.html`):
-- Bundles `cathedral-src/main.js` + local Three.js (`vendor/three.module.min.js`) via esbuild
-- Inlines `cathedral-src/styles.css`
-- Zero external script/image/model/font/audio requests; zero loading progress bar
+Builds a 100% self-contained single-file HTML for the Sovereign Gothic Sanctuary
+and Open-Source Museum (`index.html`):
+- Bundles `src/main.js` + local Three.js (`vendor/three.module.min.js`) via esbuild
+- Inlines `styles.css`
+- Zero external script/image/model/font/audio requests
 """
 
 import glob
@@ -55,18 +55,28 @@ html_out = f"""<!doctype html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ruining Yang · 2.5D 极简哥特式圣殿与开源项目博物馆</title>
+    <title>Ruining Yang · 极简哥特式圣殿与开源项目博物馆</title>
     <link
       rel="icon"
       type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2309132a'/%3E%3Cpath d='M16 4L24 14V27H8V14Z' fill='none' stroke='%23f2f5fc' stroke-width='2'/%3E%3Cpath d='M13 27V18L16 14L19 18V27' fill='%232c5298'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23040814'/%3E%3Cpath d='M16 4L24 14V27H8V14Z' fill='none' stroke='%23f2f5fc' stroke-width='2'/%3E%3Cpath d='M13 27V18L16 14L19 18V27' fill='%232c5298'/%3E%3C/svg%3E"
     />
     <style>
 {css}
     </style>
   </head>
-  <body data-stage="intro">
-    <canvas id="cathedral-canvas" aria-label="2.5D 极简哥特式圣殿与开源项目博物馆"></canvas>
+  <body data-stage="loading">
+    <canvas id="cathedral-canvas" aria-label="极简哥特式圣殿与开源项目博物馆"></canvas>
+
+    <div id="loading-overlay" aria-live="polite">
+      <div class="load-meta">
+        <span>SANCTUARY WIREFRAME SYNTHESIS</span>
+        <span id="load-pct">00%</span>
+      </div>
+      <div class="load-bar-track">
+        <div id="load-bar-fill" class="load-bar-fill"></div>
+      </div>
+    </div>
 
     <div id="cathedral-hud">
       <header class="hud-topbar">
@@ -77,11 +87,13 @@ html_out = f"""<!doctype html>
         </div>
         <div class="hud-actions">
           <a id="btn-home" class="pill-btn" href="https://armedhelicopter.github.io/">← 珞珈主页</a>
-          <button type="button" id="btn-gallery" class="pill-btn">2.5D 展廊全景</button>
-          <button type="button" id="btn-interior" class="pill-btn">圣殿地毯中轴</button>
-          <button type="button" id="btn-exterior" class="pill-btn">哥特建筑外观</button>
-          <button type="button" id="btn-scroll-mode" class="pill-btn">滚轮 · 缩放</button>
-          <button type="button" id="btn-replay" class="pill-btn">重播筑路开门</button>
+          <button type="button" id="btn-preset-sovereign" class="pill-btn is-active">晋见主位</button>
+          <button type="button" id="btn-preset-masterpiece" class="pill-btn">主画近景</button>
+          <button type="button" id="btn-preset-mezzanine" class="pill-btn">二楼俯瞰</button>
+          <button type="button" id="btn-preset-stainedglass" class="pill-btn">花窗光影</button>
+          <button type="button" id="btn-preset-spiral" class="pill-btn">螺旋阶梯</button>
+          <button type="button" id="btn-scroll-mode" class="pill-btn">滚轮 · 视野缩放</button>
+          <button type="button" id="btn-replay-dive" class="pill-btn">重播俯冲</button>
         </div>
       </header>
 
@@ -108,6 +120,7 @@ html_out = f"""<!doctype html>
         </div>
       </aside>
 
+      <div class="controls-hint">WASD / 方向键漫游 · 沿南侧螺旋阶梯可登二楼 · 拖拽环视</div>
       <nav id="exhibit-dock" class="exhibit-dock" aria-label="展品快速导航"></nav>
     </div>
 
@@ -120,13 +133,14 @@ html_out = f"""<!doctype html>
 
     <!--
       Independent Modular Components (window.__CATHEDRAL_COMPONENTS__):
-      - src/foundation.js     : Parvis causeway, pew-free inlaid marble nave, sanctuary dais & floor reflection
-      - src/gothicShell.js    : Clustered marble piers, pointed rib vaults, flying buttresses & lancet windows
-      - src/portalDoors.js    : West Gothic facade, twin spires, rose window & Genshin-style opening doors
-      - src/veiledPainting.js : Central easel, unfinished canvas & sculpted 3D draped cloth shroud
-      - src/pedestals.js      : 10 fluted Carrara marble columns, glass cloches & real/custom project icons
-      - src/lighting.js       : Celestial directional light, navy mist fog, lancet beams & floating dust
-      - src/postfx.js         : 2.5D tilt-shift DOF, highlight bloom & ACES filmic tone mapping
+      - src/spiralStaircase.js : Axial Carrara marble spiral staircase & open central well
+      - src/foundation.js      : Enclosed marble sanctuary floor, dais carpet & 2nd-floor mezzanine
+      - src/gothicShell.js     : 24.5m enclosed gothic nave, ribbed vaults & deep-navy stained glass
+      - src/veiledPainting.js  : Sovereign dais A-frame easel & draped unfinished masterpiece
+      - src/pedestals.js       : 10 flanking Carrara columns, crystal cloches & 3D project icons
+      - src/lighting.js        : Cold deep-navy morning sun rays & isolated warm-gold sovereign beam
+      - src/postfx.js          : HDR bloom, NaN-safe toning & radial FPV dive motion blur
+      - src/collision.js       : Airtight enclosed bounds, obstacles & spiral staircase collider
     -->
     <script type="module">
 {bundle_js}
