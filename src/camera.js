@@ -69,19 +69,28 @@ function shortestAngleDiff(targetAngle, currentAngle) {
 
 /**
  * Sovereign FPV Camera Controller:
- * - Stage 1 ('loading'): Top-down stairwell view bound to real async load progress 0..1
- * - Stage 2 ('dive'): Exact 1.70s high-speed axial plunge through the 4.3m spiral shaft -> sharp late brake
- *   -> low-angle upward frame directly facing Central Masterpiece with back against staircase
- * - Stage 3 ('explore'): Damped WASD/Arrow free-roam (climbs 56-step spiral stairs <-> 2nd-floor Mezzanine)
- *   + Mouse-drag look + Preset Camera Lerps strictly confined inside enclosure by `collider`
+ * - Stage 1 ('loading'): Top-down stairwell wireframe silhouette bound to 0% -> 100% real resource loading
+ * - Stage 2 ('materialize'): 1.35s top-down spatial scan-wave turning wireframe spiral stairs into solid Carrara marble
+ * - Stage 3 ('dive'): Smooth 3.00s axial FPV plunge down the spiral shaft with dynamic FOV stretch & motion blur,
+ *   whipping up cleanly beneath the North arch into low-angle Sovereign Audience framing
+ * - Stage 4 ('explore'): Damped WASD/Arrow free roam (climbs 56 spiral steps <-> 2F Mezzanine) + Preset camera lerps
  */
-export function createCameraController(camera, domElement, collider, { onDiveStep, onStageChange }) {
+export function createCameraController(
+  camera,
+  domElement,
+  collider,
+  { onMaterializeStep, onDiveStep, onStageChange }
+) {
   camera.rotation.order = 'YXZ';
 
   let stage = 'loading';
+  let matElapsed = 0;
+  let matFrozen = false;
+  const MAT_DURATION = 1.35;
+
   let diveElapsed = 0;
   let diveFrozen = false;
-  const DIVE_DURATION = 1.70;
+  const DIVE_DURATION = 3.00;
 
   let yaw = 0;
   let pitch = -1.555;
@@ -89,16 +98,15 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
   let targetPitch = -1.555;
   let desiredFov = 54;
 
-  const roamPos = new THREE.Vector3(0.0, 15.6, 18.0);
+  const roamPos = new THREE.Vector3(0.0, 15.8, 18.0);
   const vel = new THREE.Vector3();
   const moveState = { zone: 'ground', footY: 0.0, stairTheta: 0.24 * Math.PI };
-  let eyeH = 1.08;
-  let targetEyeH = 1.08;
+  let eyeH = 1.12;
+  let targetEyeH = 1.12;
 
-  // Dive path through open vertical shaft (rWell=2.15) exiting smoothly under Y=5.15m North arch (z=13.65)
   const divePosCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.0, 15.6, 18.0),
-    new THREE.Vector3(0.0, 10.4, 18.0),
+    new THREE.Vector3(0.0, 15.8, 18.0),
+    new THREE.Vector3(0.0, 10.6, 18.0),
     new THREE.Vector3(0.0, 5.2, 17.6),
     new THREE.Vector3(0.0, 2.25, 14.4),
     new THREE.Vector3(0.0, 1.32, 11.8),
@@ -118,14 +126,14 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
   let tweenEndYaw = 0;
   let tweenStartPitch = 0;
   let tweenEndPitch = 0;
-  let tweenStartFov = 44;
-  let tweenEndFov = 44;
+  let tweenStartFov = 46;
+  let tweenEndFov = 46;
   let tweenEndZone = 'ground';
   let tweenEndEyeH = 1.65;
 
   function applyLoadingPose(p01) {
     const p = THREE.MathUtils.clamp(p01, 0, 1);
-    camera.position.set(0.0, 16.0 - p * 0.4, 18.0);
+    camera.position.set(0.0, 17.2 - p * 0.4, 18.0);
     camera.rotation.set(-1.555, 0, 0);
     if (Math.abs(camera.fov - 54) > 0.05) {
       camera.fov = 54;
@@ -134,25 +142,38 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
     onDiveStep?.({ motionBlur: 0.0 });
   }
 
+  function applyMaterializeAt(m01) {
+    const m = THREE.MathUtils.clamp(m01, 0, 1);
+    camera.position.set(0.0, THREE.MathUtils.lerp(16.8, 15.8, smooth01(0, 1, m)), 18.0);
+    camera.rotation.set(-1.555, 0, 0);
+    if (Math.abs(camera.fov - 54) > 0.05) {
+      camera.fov = 54;
+      camera.updateProjectionMatrix();
+    }
+    const scanY = THREE.MathUtils.lerp(16.5, -1.4, smooth01(0.0, 0.96, m));
+    onMaterializeStep?.({ m, scanY });
+    onDiveStep?.({ motionBlur: 0.0 });
+  }
+
   function applyDiveAt(t01) {
     const u = THREE.MathUtils.clamp(t01, 0, 1);
-    const pos = divePosCurve.getPoint(u);
+    // Energetic plunge with smooth progressive late braking over 3.0s
+    const curveT = THREE.MathUtils.clamp(1.0 - Math.pow(1.0 - u, 1.32), 0, 1);
+    const pos = divePosCurve.getPoint(curveT);
     camera.position.copy(pos);
 
-    // Pitch whips cleanly up from -1.555 rad straight down to +0.126 rad Sovereign upward gaze
-    const whipT = smooth01(0.36, 0.96, u);
+    const whipT = smooth01(0.40, 0.96, u);
     const divePitch = THREE.MathUtils.lerp(-1.555, sovereignYP.pitch, whipT);
     camera.rotation.set(divePitch, 0, 0);
 
-    // Dynamic FOV stretch during peak plunge then sharp compression into final framing
-    const peakStretch = Math.sin(smooth01(0.02, 0.92, u) * Math.PI);
-    const nextFov = THREE.MathUtils.lerp(54, 44, u) + peakStretch * 28.0;
+    const peakStretch = Math.sin(smooth01(0.06, 0.92, u) * Math.PI);
+    const nextFov = THREE.MathUtils.lerp(54, 46, u) + peakStretch * 26.0;
     if (Math.abs(camera.fov - nextFov) > 0.05) {
       camera.fov = nextFov;
       camera.updateProjectionMatrix();
     }
 
-    const blur = Math.sin(smooth01(0.05, 0.90, u) * Math.PI) * 0.68;
+    const blur = Math.sin(smooth01(0.08, 0.90, u) * Math.PI) * 0.65;
     onDiveStep?.({ motionBlur: blur, u });
   }
 
@@ -164,9 +185,29 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
 
   function setLoadingProgress(p01) {
     setStage('loading');
+    matFrozen = false;
     diveFrozen = false;
     tweenActive = false;
     applyLoadingPose(p01);
+  }
+
+  function startMaterializeAndDive() {
+    setStage('materialize');
+    matElapsed = 0;
+    matFrozen = false;
+    diveElapsed = 0;
+    diveFrozen = false;
+    tweenActive = false;
+    applyMaterializeAt(0);
+  }
+
+  function setMaterializeProgress(m01) {
+    setStage('materialize');
+    matFrozen = true;
+    diveFrozen = false;
+    tweenActive = false;
+    matElapsed = THREE.MathUtils.clamp(m01, 0, 1) * MAT_DURATION;
+    applyMaterializeAt(m01);
   }
 
   function startDive() {
@@ -179,6 +220,7 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
 
   function setDiveTime(sec) {
     setStage('dive');
+    matFrozen = false;
     diveFrozen = true;
     tweenActive = false;
     diveElapsed = THREE.MathUtils.clamp(sec, 0, DIVE_DURATION);
@@ -315,6 +357,18 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
   function update(dt) {
     if (stage === 'loading') return;
 
+    if (stage === 'materialize') {
+      if (!matFrozen) {
+        matElapsed += dt;
+        const m = THREE.MathUtils.clamp(matElapsed / MAT_DURATION, 0, 1);
+        applyMaterializeAt(m);
+        if (matElapsed >= MAT_DURATION) {
+          startDive();
+        }
+      }
+      return;
+    }
+
     if (stage === 'dive') {
       if (!diveFrozen) {
         diveElapsed += dt;
@@ -327,7 +381,6 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
       return;
     }
 
-    // Explore Stage
     if (tweenActive && tweenCurve) {
       tweenElapsed += dt;
       const u = THREE.MathUtils.clamp(tweenElapsed / TWEEN_DURATION, 0, 1);
@@ -357,7 +410,6 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
       return;
     }
 
-    // Check WASD / Arrow movement
     const fwdIn = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
     const sideIn = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
     const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 1.55 : 1.0;
@@ -409,6 +461,8 @@ export function createCameraController(camera, domElement, collider, { onDiveSte
     getMoveZone: () => moveState.zone,
     wasClick: () => lastWasClick,
     setLoadingProgress,
+    startMaterializeAndDive,
+    setMaterializeProgress,
     startDive,
     setDiveTime,
     finishDiveToExplore,

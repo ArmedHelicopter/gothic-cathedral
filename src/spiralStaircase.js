@@ -300,10 +300,55 @@ export function createSpiralStaircaseComponent(mats) {
 
   group.add(whiteMesh, alaMesh, obsMesh, silMesh);
 
-  // Clean structural wireframe (sweep from top down)
+  // Rich structural wireframe + concentric compass star medallion lines (sweeps 0 -> 0.72)
   const wireCombined = mergeClean([whiteMerged, alaMerged]);
-  const wireGeo = buildOrderedWireframe(wireCombined, 26, 0.0, 10.6, 0.0, 0.58);
+  const baseWireGeo = buildOrderedWireframe(wireCombined, 18, 0.0, 10.6, 0.0, 0.68);
   wireCombined.dispose();
+
+  const basePos = baseWireGeo.attributes.position.array;
+  const baseOrd = baseWireGeo.attributes.aOrder.array;
+
+  const compassPos = [];
+  const compassOrd = [];
+  const ringSegs = 64;
+  for (const [rad, ordVal] of [
+    [0.65, 0.62],
+    [1.35, 0.64],
+    [rWell, 0.66],
+    [3.88, 0.68],
+    [rArcade, 0.70],
+  ]) {
+    for (let i = 0; i < ringSegs; i++) {
+      const a0 = (i / ringSegs) * Math.PI * 2;
+      const a1 = ((i + 1) / ringSegs) * Math.PI * 2;
+      compassPos.push(
+        CX + Math.cos(a0) * rad, 0.04, CZ + Math.sin(a0) * rad,
+        CX + Math.cos(a1) * rad, 0.04, CZ + Math.sin(a1) * rad
+      );
+      compassOrd.push(ordVal, ordVal);
+    }
+  }
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    compassPos.push(
+      CX + Math.cos(a) * 0.65, 0.04, CZ + Math.sin(a) * 0.65,
+      CX + Math.cos(a) * 3.88, 0.04, CZ + Math.sin(a) * 3.88
+    );
+    compassOrd.push(0.65, 0.65);
+  }
+
+  const totalPos = new Float32Array(basePos.length + compassPos.length);
+  totalPos.set(basePos, 0);
+  totalPos.set(compassPos, basePos.length);
+  const totalOrd = new Float32Array(baseOrd.length + compassOrd.length);
+  totalOrd.set(baseOrd, 0);
+  totalOrd.set(compassOrd, baseOrd.length);
+  baseWireGeo.dispose();
+
+  const wireGeo = new THREE.BufferGeometry();
+  wireGeo.setAttribute('position', new THREE.BufferAttribute(totalPos, 3));
+  wireGeo.setAttribute('aOrder', new THREE.BufferAttribute(totalOrd, 1));
+
   const wireframeMesh = new THREE.LineSegments(wireGeo, mats.wireframeLineMat);
   wireframeMesh.name = 'spiralStaircaseWireframe';
 

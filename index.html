@@ -115,8 +115,9 @@ body[data-hide-ui='true'] #cathedral-hud {
   transition: width 0.08s linear;
 }
 
-/* Stage 1 & Stage 2: instant hard hide so zero HUD bleeds over wireframe loading or FPV dive! */
+/* Stage 1 & Stage 2: instant hard hide so zero HUD bleeds over wireframe loading, materialization wave, or FPV dive! */
 body[data-stage='loading'] #cathedral-hud,
+body[data-stage='materialize'] #cathedral-hud,
 body[data-stage='dive'] #cathedral-hud {
   opacity: 0;
   visibility: hidden;
@@ -540,7 +541,7 @@ body[data-stage='explore'] #cathedral-hud {
           <button type="button" id="btn-preset-stainedglass" class="pill-btn">花窗光影</button>
           <button type="button" id="btn-preset-spiral" class="pill-btn">螺旋阶梯</button>
           <button type="button" id="btn-scroll-mode" class="pill-btn">滚轮 · 视野缩放</button>
-          <button type="button" id="btn-replay-dive" class="pill-btn">重播俯冲</button>
+          <button type="button" id="btn-replay-dive" class="pill-btn">重播开场俯冲</button>
         </div>
       </header>
 
@@ -11593,32 +11594,212 @@ function createCathedralMaterials(textures) {
   mats.wireframeLineMat = new Xs({
     transparent: true,
     depthWrite: false,
+    depthTest: false,
     blending: g,
     uniforms: {
       uWireProgress: { value: 0 },
-      uWireOpacity: { value: 1 }
+      uWireOpacity: { value: 1 },
+      uScanY: { value: 30 }
     },
     vertexShader: `
       attribute float aOrder;
       varying float vOrder;
+      varying float vWorldY;
       void main() {
         vOrder = aOrder;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorldY = wp.y;
+        gl_Position = projectionMatrix * viewMatrix * wp;
       }
     `,
     fragmentShader: `
       uniform float uWireProgress;
       uniform float uWireOpacity;
+      uniform float uScanY;
       varying float vOrder;
+      varying float vWorldY;
       void main() {
-        float head = clamp(uWireProgress * 1.08, 0.0, 1.08);
-        float reveal = smoothstep(head + 0.03, head - 0.05, vOrder);
-        float pulse = exp(-pow(clamp((vOrder - head + 0.03) * 18.0, -6.0, 6.0), 2.0));
-        vec3 baseCol = vec3(0.32, 0.56, 0.96);
-        vec3 edgeCol = vec3(0.90, 0.96, 1.0);
-        vec3 col = mix(baseCol, edgeCol, pulse * 0.85);
-        float alpha = clamp((reveal * 0.55 + pulse * 0.45) * uWireOpacity, 0.0, 1.0);
+        float head = clamp(uWireProgress * 1.10, 0.0, 1.10);
+        float drawMask = smoothstep(head + 0.04, head - 0.08, vOrder);
+        float drawPulse = exp(-pow(clamp((vOrder - head + 0.03) * 14.0, -6.0, 6.0), 2.0));
+
+        // During Spatial Materialization Wave (uScanY sweeps 16.5 -> -1.4):
+        // keep bright wireframe below uScanY, emit an intense conversion halo at uScanY, dissolve above!
+        float belowWave = smoothstep(uScanY + 1.35, uScanY - 0.25, vWorldY);
+        float waveBand = exp(-pow(clamp((vWorldY - uScanY) / 0.85, -6.0, 6.0), 2.0));
+
+        vec3 draftBlue = vec3(0.42, 0.72, 1.25);
+        vec3 brightIce = vec3(1.15, 1.45, 1.95);
+        vec3 col = mix(draftBlue, brightIce, clamp(drawPulse * 0.75 + waveBand * 0.95, 0.0, 1.0));
+
+        float strength = (drawMask * 0.72 + drawPulse * 0.58) * belowWave + waveBand * 0.85;
+        float alpha = clamp(strength * uWireOpacity, 0.0, 1.0);
         if (alpha < 0.01) discard;
+        gl_FragColor = vec4(col, alpha);
+      }
+    `
+  });
+  mats.whiteMarbleMat = new pd({
+    color: new Kr("#eef2fa"),
+    roughness: 0.34,
+    metalness: 0.04,
+    envMapIntensity: 0.85
+  });
+  mats.brightAlabasterMat = new pd({
+    color: new Kr("#f8faff"),
+    roughness: 0.28,
+    metalness: 0.04,
+    envMapIntensity: 0.95
+  });
+  mats.obsidianMat = new pd({
+    color: new Kr("#3b4b70"),
+    roughness: 0.26,
+    metalness: 0.28,
+    envMapIntensity: 1.45
+  });
+  mats.matteBasaltMat = new pd({
+    color: new Kr("#1a2540"),
+    roughness: 0.52,
+    metalness: 0.14,
+    envMapIntensity: 0.95
+  });
+  mats.navyStoneMat = new pd({
+    color: new Kr("#34579e"),
+    roughness: 0.56,
+    metalness: 0.08,
+    envMapIntensity: 1.05
+  });
+  mats.navyVelvetMat = new pd({
+    color: new Kr("#10224e"),
+    roughness: 0.92,
+    metalness: 0.02,
+    envMapIntensity: 0.32
+  });
+  mats.silverTrimMat = new pd({
+    color: new Kr("#e6eefc"),
+    roughness: 0.18,
+    metalness: 0.86,
+    envMapIntensity: 1.45
+  });
+  mats.giltBronzeMat = new pd({
+    color: new Kr("#ead8b1"),
+    roughness: 0.24,
+    metalness: 0.82,
+    envMapIntensity: 1.35
+  });
+  mats.floorTrimMat = new pd({
+    color: new Kr("#6880af"),
+    roughness: 0.48,
+    metalness: 0.08,
+    envMapIntensity: 0.72
+  });
+  mats.naveInlayMat = new pd({
+    color: new Kr("#d8e4fb"),
+    roughness: 0.26,
+    metalness: 0.14,
+    envMapIntensity: 1.15
+  });
+  mats.wellMedallionMat = new pd({
+    color: new Kr("#eef4ff"),
+    roughness: 0.28,
+    metalness: 0.1,
+    envMapIntensity: 1.05
+  });
+  mats.carpetMat = new pd({
+    color: new Kr("#dce8ff"),
+    roughness: 0.88,
+    metalness: 0.02,
+    envMapIntensity: 0.42
+  });
+  mats.shroudMat = new pd({
+    color: new Kr("#f7f6f2"),
+    roughness: 0.9,
+    metalness: 0,
+    side: p,
+    envMapIntensity: 0.34
+  });
+  mats.lancetGlassMat = new pd({
+    emissive: new Kr("#3b7cff"),
+    emissiveIntensity: 1.95,
+    roughness: 0.2,
+    metalness: 0.08,
+    side: p
+  });
+  mats.lancetGoboMat = new es({
+    color: new Kr("#4284ff"),
+    transparent: true,
+    opacity: 0.32,
+    blending: g,
+    depthWrite: false,
+    side: p
+  });
+  mats.roseGlassMat = new pd({
+    emissive: new Kr("#4b8aff"),
+    emissiveIntensity: 1.75,
+    roughness: 0.22,
+    metalness: 0.08,
+    side: p
+  });
+  mats.windowSunBackingMat = new Xs({
+    side: u,
+    vertexShader: `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: `
+      varying vec2 vUv;
+      void main() {
+        float y = clamp(vUv.y, 0.0, 1.0);
+        vec3 sky = mix(vec3(0.45, 0.68, 0.98), vec3(0.95, 0.98, 1.0), smoothstep(0.15, 0.85, y));
+        gl_FragColor = vec4(sky * 1.45, 1.0);
+      }
+    `
+  });
+  mats.clocheGlassMat = new Xs({
+    transparent: true,
+    depthWrite: false,
+    side: u,
+    uniforms: {
+      uRimColor: { value: new Kr("#eef5ff") },
+      uEdgeTint: { value: new Kr("#5a94ff") },
+      uOpacityScale: { value: 1 }
+    },
+    vertexShader: `
+      varying vec3 vNormalW;
+      varying vec3 vViewDirW;
+      varying vec3 vLocalPos;
+      void main() {
+        vLocalPos = position;
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vNormalW = normalize(mat3(modelMatrix) * normal);
+        vViewDirW = normalize(cameraPosition - wp.xyz);
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uRimColor;
+      uniform vec3 uEdgeTint;
+      uniform float uOpacityScale;
+      varying vec3 vNormalW;
+      varying vec3 vViewDirW;
+      varying vec3 vLocalPos;
+      void main() {
+        vec3 N = normalize(vNormalW);
+        vec3 V = normalize(vViewDirW);
+        float ndotv = clamp(abs(dot(N, V)), 0.0, 1.0);
+        float rim = pow(max(0.0001, 1.0 - ndotv), 4.0);
+
+        vec3 H1 = normalize(V + normalize(vec3(0.56, 0.35, 0.74)));
+        vec3 H2 = normalize(V + normalize(vec3(-0.74, 0.22, 0.63)));
+        float spec1 = pow(max(0.0001, dot(N, H1)), 130.0) * 0.45;
+        float spec2 = pow(max(0.0001, dot(N, H2)), 110.0) * 0.32;
+
+        float baseLip = smoothstep(0.045, 0.0, vLocalPos.y) * 0.52;
+        float domeCrest = smoothstep(0.60, 0.88, vLocalPos.y) * rim * 0.38;
+
+        vec3 col = mix(uEdgeTint, uRimColor, clamp(rim * 0.85 + 0.40, 0.0, 1.0));
+        col += vec3(1.0) * (spec1 + spec2 + baseLip + domeCrest);
+        float alpha = clamp(0.020 + rim * 0.64 + spec1 * 0.55 + spec2 * 0.40 + baseLip * 0.48, 0.020, 0.86) * uOpacityScale;
         gl_FragColor = vec4(col, alpha);
       }
     `
@@ -11628,207 +11809,55 @@ function createCathedralMaterials(textures) {
     const marbleBump = textures.carraraBump("carrara-bump-main", [1, 1], 109);
     const obsidianMap = textures.obsidianStone("obsidian-main", [1, 1], 202);
     const navyAshlarMap = textures.navyAshlar("navy-ashlar-main", [1, 1], 303);
-    mats.whiteMarbleMat = new pd({
-      map: marbleMap,
-      bumpMap: marbleBump,
-      bumpScale: 0.018,
-      color: new Kr("#eef2fa"),
-      roughness: 0.34,
-      metalness: 0.04,
-      envMapIntensity: 0.85
-    });
-    mats.brightAlabasterMat = new pd({
-      map: marbleMap,
-      bumpMap: marbleBump,
-      bumpScale: 0.012,
-      color: new Kr("#f8faff"),
-      roughness: 0.28,
-      metalness: 0.04,
-      envMapIntensity: 0.95
-    });
-    mats.obsidianMat = new pd({
-      map: obsidianMap,
-      color: new Kr("#3b4b70"),
-      roughness: 0.26,
-      metalness: 0.28,
-      envMapIntensity: 1.45
-    });
-    mats.matteBasaltMat = new pd({
-      map: obsidianMap,
-      color: new Kr("#1a2540"),
-      roughness: 0.52,
-      metalness: 0.14,
-      envMapIntensity: 0.95
-    });
-    mats.navyStoneMat = new pd({
-      map: navyAshlarMap,
-      color: new Kr("#34579e"),
-      roughness: 0.56,
-      metalness: 0.08,
-      envMapIntensity: 1.05
-    });
-    mats.navyVelvetMat = new pd({
-      color: new Kr("#10224e"),
-      roughness: 0.92,
-      metalness: 0.02,
-      envMapIntensity: 0.32
-    });
-    mats.silverTrimMat = new pd({
-      color: new Kr("#e6eefc"),
-      roughness: 0.18,
-      metalness: 0.86,
-      envMapIntensity: 1.45
-    });
-    mats.giltBronzeMat = new pd({
-      color: new Kr("#ead8b1"),
-      roughness: 0.24,
-      metalness: 0.82,
-      envMapIntensity: 1.35
-    });
-    mats.floorTrimMat = new pd({
-      map: marbleMap,
-      color: new Kr("#6880af"),
-      roughness: 0.48,
-      metalness: 0.08,
-      envMapIntensity: 0.72
-    });
+    mats.whiteMarbleMat.map = marbleMap;
+    mats.whiteMarbleMat.bumpMap = marbleBump;
+    mats.whiteMarbleMat.bumpScale = 0.018;
+    mats.whiteMarbleMat.needsUpdate = true;
+    mats.brightAlabasterMat.map = marbleMap;
+    mats.brightAlabasterMat.bumpMap = marbleBump;
+    mats.brightAlabasterMat.bumpScale = 0.012;
+    mats.brightAlabasterMat.needsUpdate = true;
+    mats.obsidianMat.map = obsidianMap;
+    mats.obsidianMat.needsUpdate = true;
+    mats.matteBasaltMat.map = obsidianMap;
+    mats.matteBasaltMat.needsUpdate = true;
+    mats.navyStoneMat.map = navyAshlarMap;
+    mats.navyStoneMat.needsUpdate = true;
+    mats.floorTrimMat.map = marbleMap;
+    mats.floorTrimMat.needsUpdate = true;
   }
   function buildFloorsAndDraperies() {
     const carpetTex = textures.ceruleanCarpetTex("cerulean-carpet-main");
     const naveInlayMap = textures.naveInlayFloor("nave-inlay-main", [8, 16]);
     const medallionMap = textures.wellMedallionTex("well-medallion-main");
     const linen = textures.linenCloth("shroud-linen");
-    mats.naveInlayMat = new pd({
-      map: naveInlayMap,
-      color: new Kr("#d8e4fb"),
-      roughness: 0.26,
-      metalness: 0.14,
-      envMapIntensity: 1.15
-    });
-    mats.wellMedallionMat = new pd({
-      map: medallionMap,
-      color: new Kr("#eef4ff"),
-      roughness: 0.28,
-      metalness: 0.1,
-      envMapIntensity: 1.05
-    });
-    mats.carpetMat = new pd({
-      map: carpetTex.map,
-      bumpMap: carpetTex.bumpMap,
-      bumpScale: 0.028,
-      color: new Kr("#dce8ff"),
-      roughness: 0.88,
-      metalness: 0.02,
-      envMapIntensity: 0.42
-    });
-    mats.shroudMat = new pd({
-      map: linen.map,
-      bumpMap: linen.bumpMap,
-      bumpScale: 0.045,
-      color: new Kr("#f7f6f2"),
-      roughness: 0.9,
-      metalness: 0,
-      side: p,
-      envMapIntensity: 0.34
-    });
+    mats.naveInlayMat.map = naveInlayMap;
+    mats.naveInlayMat.needsUpdate = true;
+    mats.wellMedallionMat.map = medallionMap;
+    mats.wellMedallionMat.needsUpdate = true;
+    mats.carpetMat.map = carpetTex.map;
+    mats.carpetMat.bumpMap = carpetTex.bumpMap;
+    mats.carpetMat.bumpScale = 0.028;
+    mats.carpetMat.needsUpdate = true;
+    mats.shroudMat.map = linen.map;
+    mats.shroudMat.bumpMap = linen.bumpMap;
+    mats.shroudMat.bumpScale = 0.045;
+    mats.shroudMat.needsUpdate = true;
   }
   function buildStainedGlassAndVFX() {
     const lancet = textures.lancetGlass("lancet-navy");
     const lancetGoboMap = textures.lancetGoboTex("lancet-gobo-main");
     const rose = textures.roseWindowGlass("rose-navy");
     const bokehMap = textures.bokehDot("dust-bokeh");
-    mats.lancetGlassMat = new pd({
-      map: lancet.map,
-      emissiveMap: lancet.emissiveMap,
-      emissive: new Kr("#3b7cff"),
-      emissiveIntensity: 1.95,
-      roughness: 0.2,
-      metalness: 0.08,
-      side: p
-    });
-    mats.lancetGoboMat = new es({
-      map: lancetGoboMap,
-      color: new Kr("#4284ff"),
-      transparent: true,
-      opacity: 0.32,
-      blending: g,
-      depthWrite: false,
-      side: p
-    });
-    mats.roseGlassMat = new pd({
-      map: rose.map,
-      emissiveMap: rose.emissiveMap,
-      emissive: new Kr("#4b8aff"),
-      emissiveIntensity: 1.75,
-      roughness: 0.22,
-      metalness: 0.08,
-      side: p
-    });
+    mats.lancetGlassMat.map = lancet.map;
+    mats.lancetGlassMat.emissiveMap = lancet.emissiveMap;
+    mats.lancetGlassMat.needsUpdate = true;
+    mats.lancetGoboMat.map = lancetGoboMap;
+    mats.lancetGoboMat.needsUpdate = true;
+    mats.roseGlassMat.map = rose.map;
+    mats.roseGlassMat.emissiveMap = rose.emissiveMap;
+    mats.roseGlassMat.needsUpdate = true;
     mats.bokehMap = bokehMap;
-    mats.windowSunBackingMat = new Xs({
-      side: u,
-      vertexShader: `
-        varying vec2 vUv;
-        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-      `,
-      fragmentShader: `
-        varying vec2 vUv;
-        void main() {
-          float y = clamp(vUv.y, 0.0, 1.0);
-          vec3 sky = mix(vec3(0.45, 0.68, 0.98), vec3(0.95, 0.98, 1.0), smoothstep(0.15, 0.85, y));
-          gl_FragColor = vec4(sky * 1.45, 1.0);
-        }
-      `
-    });
-    mats.clocheGlassMat = new Xs({
-      transparent: true,
-      depthWrite: false,
-      side: u,
-      uniforms: {
-        uRimColor: { value: new Kr("#eef5ff") },
-        uEdgeTint: { value: new Kr("#5a94ff") },
-        uOpacityScale: { value: 1 }
-      },
-      vertexShader: `
-        varying vec3 vNormalW;
-        varying vec3 vViewDirW;
-        varying vec3 vLocalPos;
-        void main() {
-          vLocalPos = position;
-          vec4 wp = modelMatrix * vec4(position, 1.0);
-          vNormalW = normalize(mat3(modelMatrix) * normal);
-          vViewDirW = normalize(cameraPosition - wp.xyz);
-          gl_Position = projectionMatrix * viewMatrix * wp;
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 uRimColor;
-        uniform vec3 uEdgeTint;
-        uniform float uOpacityScale;
-        varying vec3 vNormalW;
-        varying vec3 vViewDirW;
-        varying vec3 vLocalPos;
-        void main() {
-          vec3 N = normalize(vNormalW);
-          vec3 V = normalize(vViewDirW);
-          float ndotv = clamp(abs(dot(N, V)), 0.0, 1.0);
-          float rim = pow(max(0.0001, 1.0 - ndotv), 4.0);
-
-          vec3 H1 = normalize(V + normalize(vec3(0.56, 0.35, 0.74)));
-          vec3 H2 = normalize(V + normalize(vec3(-0.74, 0.22, 0.63)));
-          float spec1 = pow(max(0.0001, dot(N, H1)), 130.0) * 0.45;
-          float spec2 = pow(max(0.0001, dot(N, H2)), 110.0) * 0.32;
-
-          float baseLip = smoothstep(0.045, 0.0, vLocalPos.y) * 0.52;
-          float domeCrest = smoothstep(0.60, 0.88, vLocalPos.y) * rim * 0.38;
-
-          vec3 col = mix(uEdgeTint, uRimColor, clamp(rim * 0.85 + 0.40, 0.0, 1.0));
-          col += vec3(1.0) * (spec1 + spec2 + baseLip + domeCrest);
-          float alpha = clamp(0.020 + rim * 0.64 + spec1 * 0.55 + spec2 * 0.40 + baseLip * 0.48, 0.020, 0.86) * uOpacityScale;
-          gl_FragColor = vec4(col, alpha);
-        }
-      `
-    });
     mats.dustMat = new lc({
       map: bokehMap,
       color: new Kr("#dceaff"),
@@ -12382,8 +12411,56 @@ function createSpiralStaircaseComponent(mats) {
   const silMesh = new Bs(silMerged, mats.silverTrimMat);
   group.add(whiteMesh, alaMesh, obsMesh, silMesh);
   const wireCombined = mergeClean([whiteMerged, alaMerged]);
-  const wireGeo = buildOrderedWireframe(wireCombined, 26, 0, 10.6, 0, 0.58);
+  const baseWireGeo = buildOrderedWireframe(wireCombined, 18, 0, 10.6, 0, 0.68);
   wireCombined.dispose();
+  const basePos = baseWireGeo.attributes.position.array;
+  const baseOrd = baseWireGeo.attributes.aOrder.array;
+  const compassPos = [];
+  const compassOrd = [];
+  const ringSegs = 64;
+  for (const [rad, ordVal] of [
+    [0.65, 0.62],
+    [1.35, 0.64],
+    [rWell, 0.66],
+    [3.88, 0.68],
+    [rArcade, 0.7]
+  ]) {
+    for (let i = 0; i < ringSegs; i++) {
+      const a0 = i / ringSegs * Math.PI * 2;
+      const a1 = (i + 1) / ringSegs * Math.PI * 2;
+      compassPos.push(
+        CX + Math.cos(a0) * rad,
+        0.04,
+        CZ + Math.sin(a0) * rad,
+        CX + Math.cos(a1) * rad,
+        0.04,
+        CZ + Math.sin(a1) * rad
+      );
+      compassOrd.push(ordVal, ordVal);
+    }
+  }
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2;
+    compassPos.push(
+      CX + Math.cos(a) * 0.65,
+      0.04,
+      CZ + Math.sin(a) * 0.65,
+      CX + Math.cos(a) * 3.88,
+      0.04,
+      CZ + Math.sin(a) * 3.88
+    );
+    compassOrd.push(0.65, 0.65);
+  }
+  const totalPos = new Float32Array(basePos.length + compassPos.length);
+  totalPos.set(basePos, 0);
+  totalPos.set(compassPos, basePos.length);
+  const totalOrd = new Float32Array(baseOrd.length + compassOrd.length);
+  totalOrd.set(baseOrd, 0);
+  totalOrd.set(compassOrd, baseOrd.length);
+  baseWireGeo.dispose();
+  const wireGeo = new Es();
+  wireGeo.setAttribute("position", new cs(totalPos, 3));
+  wireGeo.setAttribute("aOrder", new cs(totalOrd, 1));
   const wireframeMesh = new Ah(wireGeo, mats.wireframeLineMat);
   wireframeMesh.name = "spiralStaircaseWireframe";
   function getStairHeightAt(unwrappedTheta) {
@@ -14533,25 +14610,28 @@ function shortestAngleDiff(targetAngle, currentAngle) {
   if (d2 < -Math.PI) d2 += Math.PI * 2;
   return d2;
 }
-function createCameraController(camera, domElement, collider, { onDiveStep, onStageChange }) {
+function createCameraController(camera, domElement, collider, { onMaterializeStep, onDiveStep, onStageChange }) {
   camera.rotation.order = "YXZ";
   let stage = "loading";
+  let matElapsed = 0;
+  let matFrozen = false;
+  const MAT_DURATION = 1.35;
   let diveElapsed = 0;
   let diveFrozen = false;
-  const DIVE_DURATION = 1.7;
+  const DIVE_DURATION = 3;
   let yaw = 0;
   let pitch = -1.555;
   let targetYaw = 0;
   let targetPitch = -1.555;
   let desiredFov = 54;
-  const roamPos = new Ci(0, 15.6, 18);
+  const roamPos = new Ci(0, 15.8, 18);
   const vel = new Ci();
   const moveState = { zone: "ground", footY: 0, stairTheta: 0.24 * Math.PI };
-  let eyeH = 1.08;
-  let targetEyeH = 1.08;
+  let eyeH = 1.12;
+  let targetEyeH = 1.12;
   const divePosCurve = new Jh([
-    new Ci(0, 15.6, 18),
-    new Ci(0, 10.4, 18),
+    new Ci(0, 15.8, 18),
+    new Ci(0, 10.6, 18),
     new Ci(0, 5.2, 17.6),
     new Ci(0, 2.25, 14.4),
     new Ci(0, 1.32, 11.8),
@@ -14569,13 +14649,13 @@ function createCameraController(camera, domElement, collider, { onDiveStep, onSt
   let tweenEndYaw = 0;
   let tweenStartPitch = 0;
   let tweenEndPitch = 0;
-  let tweenStartFov = 44;
-  let tweenEndFov = 44;
+  let tweenStartFov = 46;
+  let tweenEndFov = 46;
   let tweenEndZone = "ground";
   let tweenEndEyeH = 1.65;
   function applyLoadingPose(p01) {
     const p2 = Zn.clamp(p01, 0, 1);
-    camera.position.set(0, 16 - p2 * 0.4, 18);
+    camera.position.set(0, 17.2 - p2 * 0.4, 18);
     camera.rotation.set(-1.555, 0, 0);
     if (Math.abs(camera.fov - 54) > 0.05) {
       camera.fov = 54;
@@ -14583,20 +14663,33 @@ function createCameraController(camera, domElement, collider, { onDiveStep, onSt
     }
     onDiveStep?.({ motionBlur: 0 });
   }
+  function applyMaterializeAt(m01) {
+    const m = Zn.clamp(m01, 0, 1);
+    camera.position.set(0, Zn.lerp(16.8, 15.8, smooth01(0, 1, m)), 18);
+    camera.rotation.set(-1.555, 0, 0);
+    if (Math.abs(camera.fov - 54) > 0.05) {
+      camera.fov = 54;
+      camera.updateProjectionMatrix();
+    }
+    const scanY = Zn.lerp(16.5, -1.4, smooth01(0, 0.96, m));
+    onMaterializeStep?.({ m, scanY });
+    onDiveStep?.({ motionBlur: 0 });
+  }
   function applyDiveAt(t01) {
     const u2 = Zn.clamp(t01, 0, 1);
-    const pos = divePosCurve.getPoint(u2);
+    const curveT = Zn.clamp(1 - Math.pow(1 - u2, 1.32), 0, 1);
+    const pos = divePosCurve.getPoint(curveT);
     camera.position.copy(pos);
-    const whipT = smooth01(0.36, 0.96, u2);
+    const whipT = smooth01(0.4, 0.96, u2);
     const divePitch = Zn.lerp(-1.555, sovereignYP.pitch, whipT);
     camera.rotation.set(divePitch, 0, 0);
-    const peakStretch = Math.sin(smooth01(0.02, 0.92, u2) * Math.PI);
-    const nextFov = Zn.lerp(54, 44, u2) + peakStretch * 28;
+    const peakStretch = Math.sin(smooth01(0.06, 0.92, u2) * Math.PI);
+    const nextFov = Zn.lerp(54, 46, u2) + peakStretch * 26;
     if (Math.abs(camera.fov - nextFov) > 0.05) {
       camera.fov = nextFov;
       camera.updateProjectionMatrix();
     }
-    const blur = Math.sin(smooth01(0.05, 0.9, u2) * Math.PI) * 0.68;
+    const blur = Math.sin(smooth01(0.08, 0.9, u2) * Math.PI) * 0.65;
     onDiveStep?.({ motionBlur: blur, u: u2 });
   }
   function setStage(next) {
@@ -14606,9 +14699,27 @@ function createCameraController(camera, domElement, collider, { onDiveStep, onSt
   }
   function setLoadingProgress(p01) {
     setStage("loading");
+    matFrozen = false;
     diveFrozen = false;
     tweenActive = false;
     applyLoadingPose(p01);
+  }
+  function startMaterializeAndDive() {
+    setStage("materialize");
+    matElapsed = 0;
+    matFrozen = false;
+    diveElapsed = 0;
+    diveFrozen = false;
+    tweenActive = false;
+    applyMaterializeAt(0);
+  }
+  function setMaterializeProgress(m01) {
+    setStage("materialize");
+    matFrozen = true;
+    diveFrozen = false;
+    tweenActive = false;
+    matElapsed = Zn.clamp(m01, 0, 1) * MAT_DURATION;
+    applyMaterializeAt(m01);
   }
   function startDive() {
     setStage("dive");
@@ -14619,6 +14730,7 @@ function createCameraController(camera, domElement, collider, { onDiveStep, onSt
   }
   function setDiveTime(sec) {
     setStage("dive");
+    matFrozen = false;
     diveFrozen = true;
     tweenActive = false;
     diveElapsed = Zn.clamp(sec, 0, DIVE_DURATION);
@@ -14738,6 +14850,17 @@ function createCameraController(camera, domElement, collider, { onDiveStep, onSt
   }
   function update(dt2) {
     if (stage === "loading") return;
+    if (stage === "materialize") {
+      if (!matFrozen) {
+        matElapsed += dt2;
+        const m = Zn.clamp(matElapsed / MAT_DURATION, 0, 1);
+        applyMaterializeAt(m);
+        if (matElapsed >= MAT_DURATION) {
+          startDive();
+        }
+      }
+      return;
+    }
     if (stage === "dive") {
       if (!diveFrozen) {
         diveElapsed += dt2;
@@ -14818,6 +14941,8 @@ function createCameraController(camera, domElement, collider, { onDiveStep, onSt
     getMoveZone: () => moveState.zone,
     wasClick: () => lastWasClick,
     setLoadingProgress,
+    startMaterializeAndDive,
+    setMaterializeProgress,
     startDive,
     setDiveTime,
     finishDiveToExplore,
@@ -15014,6 +15139,10 @@ function showFallback() {
   const fb = document.getElementById("webgl-fallback");
   if (fb) fb.hidden = false;
 }
+var smooth012 = (e0, e1, v) => {
+  const t2 = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));
+  return t2 * t2 * (3 - 2 * t2);
+};
 var nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 async function init() {
   const canvas = document.getElementById("cathedral-canvas");
@@ -15039,6 +15168,7 @@ async function init() {
   renderer.outputColorSpace = Je;
   renderer.toneMapping = et;
   renderer.toneMappingExposure = 1.04;
+  renderer.localClippingEnabled = true;
   const scene = new rc();
   const camera = new Js(54, window.innerWidth / window.innerHeight, 0.12, 180);
   const textures = createCathedralTextures(renderer);
@@ -15053,6 +15183,7 @@ async function init() {
   solidWorldGroup.name = "sanctuarySolidWorld";
   solidWorldGroup.visible = false;
   scene.add(wireframeGroup, solidWorldGroup);
+  const scanClipPlane = new ra(new Ci(0, 1, 0), -30);
   let ui2 = null;
   let cameraRig = null;
   let scrollTourMode = false;
@@ -15067,27 +15198,44 @@ async function init() {
   function applyLoadingVisuals(p01) {
     const p2 = Zn.clamp(p01, 0, 1);
     realLoadProgress = p2;
-    const wireDraw = Math.min(1, p2 / 0.84);
-    const wireOpacity = p2 < 0.8 ? 1 : Math.max(0, 1 - (p2 - 0.8) / 0.2);
-    mats.wireframeLineMat.uniforms.uWireProgress.value = wireDraw * wireDraw * (3 - 2 * wireDraw);
-    mats.wireframeLineMat.uniforms.uWireOpacity.value = wireOpacity;
-    wireframeGroup.visible = wireOpacity > 0.01;
-    const matAlpha = p2 < 0.64 ? 0 : Math.min(1, (p2 - 0.64) / 0.36);
-    solidWorldGroup.visible = p2 > 0.64 && lighting !== null;
-    lighting.setMaterializeProgress(matAlpha * matAlpha * (3 - 2 * matAlpha));
+    renderer.clippingPlanes = [];
+    solidWorldGroup.visible = false;
+    wireframeGroup.visible = true;
+    mats.wireframeLineMat.uniforms.uScanY.value = 30;
+    mats.wireframeLineMat.uniforms.uWireProgress.value = smooth012(0, 0.96, p2);
+    mats.wireframeLineMat.uniforms.uWireOpacity.value = 1;
     ui2?.setLoadProgress(p2);
     cameraRig?.setLoadingProgress(p2);
   }
+  function applyMaterializeVisuals(m01, scanY) {
+    solidWorldGroup.visible = true;
+    const wireFade = 1 - smooth012(0.86, 1, m01);
+    wireframeGroup.visible = wireFade > 0.01;
+    mats.wireframeLineMat.uniforms.uWireProgress.value = 1;
+    mats.wireframeLineMat.uniforms.uScanY.value = scanY;
+    mats.wireframeLineMat.uniforms.uWireOpacity.value = wireFade;
+    scanClipPlane.constant = -scanY;
+    renderer.clippingPlanes = m01 < 0.99 ? [scanClipPlane] : [];
+    lighting.setMaterializeProgress(0.35 + 0.65 * smooth012(0, 0.85, m01));
+  }
   cameraRig = createCameraController(camera, canvas, collider, {
+    onMaterializeStep({ m, scanY }) {
+      applyMaterializeVisuals(m, scanY);
+    },
     onDiveStep({ motionBlur }) {
       postfx.setMotionBlur(motionBlur || 0);
     },
     onStageChange(stage) {
       ui2?.setStage(stage);
       if (stage === "loading") {
+        renderer.clippingPlanes = [];
         solidWorldGroup.visible = false;
         wireframeGroup.visible = true;
+      } else if (stage === "materialize") {
+        solidWorldGroup.visible = true;
+        wireframeGroup.visible = true;
       } else {
+        renderer.clippingPlanes = [];
         wireframeGroup.visible = false;
         mats.wireframeLineMat.uniforms.uWireOpacity.value = 0;
         solidWorldGroup.visible = true;
@@ -15099,7 +15247,8 @@ async function init() {
     }
   });
   function renderAll() {
-    if (foundation && solidWorldGroup.visible) {
+    const floorMaterialized = renderer.clippingPlanes.length === 0 || scanClipPlane.constant >= 0;
+    if (foundation && solidWorldGroup.visible && floorMaterialized) {
       foundation.updateReflection(renderer, scene, camera);
     }
     postfx.render(scene, camera);
@@ -15163,12 +15312,8 @@ async function init() {
   ui2 = earlyUI;
   applyLoadingVisuals(0);
   const loadTasks = [
-    { weight: 10, run: () => matFactory.buildCoreStoneAndMetal() },
-    { weight: 10, run: () => matFactory.buildFloorsAndDraperies() },
-    { weight: 8, run: () => matFactory.buildStainedGlassAndVFX() },
-    { weight: 10, run: () => textures.uploadAllToGPU(renderer) },
     {
-      weight: 14,
+      weight: 10,
       run: () => {
         spiralStaircase = createSpiralStaircaseComponent(mats);
         wireframeGroup.add(spiralStaircase.wireframeMesh);
@@ -15178,16 +15323,20 @@ async function init() {
     {
       weight: 10,
       run: () => {
-        foundation = createFoundationComponent(mats);
-        solidWorldGroup.add(foundation.group);
-      }
-    },
-    {
-      weight: 14,
-      run: () => {
         gothicShell = createGothicShellComponent(mats);
         wireframeGroup.add(gothicShell.wireframeMesh);
         solidWorldGroup.add(gothicShell.group);
+      }
+    },
+    { weight: 10, run: () => matFactory.buildCoreStoneAndMetal() },
+    { weight: 10, run: () => matFactory.buildFloorsAndDraperies() },
+    { weight: 8, run: () => matFactory.buildStainedGlassAndVFX() },
+    { weight: 10, run: () => textures.uploadAllToGPU(renderer) },
+    {
+      weight: 8,
+      run: () => {
+        foundation = createFoundationComponent(mats);
+        solidWorldGroup.add(foundation.group);
       }
     },
     {
@@ -15195,6 +15344,7 @@ async function init() {
       run: () => {
         veiledPainting = createVeiledPaintingComponent(textures, mats);
         solidWorldGroup.add(veiledPainting.group);
+        textures.uploadAllToGPU(renderer);
       }
     },
     {
@@ -15218,8 +15368,15 @@ async function init() {
       run: () => {
         lighting.setMaterializeProgress(1);
         solidWorldGroup.visible = true;
-        lighting.bakeStaticShadows();
+        scanClipPlane.constant = -8;
+        renderer.clippingPlanes = [scanClipPlane];
         renderer.compile(scene, camera);
+        lighting.bakeStaticShadows();
+        postfx.render(scene, camera);
+        renderer.clippingPlanes = [];
+        renderer.compile(scene, camera);
+        postfx.render(scene, camera);
+        solidWorldGroup.visible = false;
       }
     }
   ];
@@ -15231,6 +15388,7 @@ async function init() {
     const pct = doneWeight / totalWeight;
     applyLoadingVisuals(pct);
     renderAll();
+    await nextFrame();
     await nextFrame();
     await nextFrame();
   }
@@ -15288,7 +15446,7 @@ async function init() {
       activeExhibitId = null;
       pedestals.setActiveExhibit(null, null);
       ui2?.setActivePreset("sovereign");
-      cameraRig.startDive();
+      cameraRig.startMaterializeAndDive();
     }
   });
   ui2.setActivePreset("sovereign");
@@ -15341,18 +15499,24 @@ async function init() {
   if (params.get("intro") === "0") {
     cameraRig.finishDiveToExplore();
   } else {
-    cameraRig.startDive();
+    cameraRig.startMaterializeAndDive();
   }
   window.__CATHEDRAL_DEBUG__ = {
     setLoadingProgress(p01, { hideUi = true } = {}) {
       document.body.dataset.hideUi = hideUi ? "true" : "false";
       cameraRig.setLoadingProgress(p01);
       applyLoadingVisuals(p01);
-      if (p01 > 0.68) lighting.bakeStaticShadows();
+      renderAll();
+    },
+    setMaterializeProgress(m01, { hideUi = true } = {}) {
+      document.body.dataset.hideUi = hideUi ? "true" : "false";
+      cameraRig.setMaterializeProgress(m01);
+      lighting.update(0, 1, camera);
       renderAll();
     },
     setDiveTime(sec, { hideUi = true } = {}) {
       document.body.dataset.hideUi = hideUi ? "true" : "false";
+      renderer.clippingPlanes = [];
       wireframeGroup.visible = false;
       solidWorldGroup.visible = true;
       lighting.setMaterializeProgress(1);
@@ -15362,6 +15526,7 @@ async function init() {
     },
     goToPreset(presetKey, { hideUi = true } = {}) {
       document.body.dataset.hideUi = hideUi ? "true" : "false";
+      renderer.clippingPlanes = [];
       wireframeGroup.visible = false;
       solidWorldGroup.visible = true;
       lighting.setMaterializeProgress(1);
@@ -15372,6 +15537,7 @@ async function init() {
     },
     setCamera(posArr, targetArr, { hideUi = true, fov = 44 } = {}) {
       document.body.dataset.hideUi = hideUi ? "true" : "false";
+      renderer.clippingPlanes = [];
       wireframeGroup.visible = false;
       solidWorldGroup.visible = true;
       lighting.setMaterializeProgress(1);

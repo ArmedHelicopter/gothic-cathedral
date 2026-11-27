@@ -103,8 +103,9 @@ body[data-hide-ui='true'] #cathedral-hud {
   transition: width 0.08s linear;
 }
 
-/* Stage 1 & Stage 2: instant hard hide so zero HUD bleeds over wireframe loading or FPV dive! */
+/* Stage 1 & Stage 2: instant hard hide so zero HUD bleeds over wireframe loading, materialization wave, or FPV dive! */
 body[data-stage='loading'] #cathedral-hud,
+body[data-stage='materialize'] #cathedral-hud,
 body[data-stage='dive'] #cathedral-hud {
   opacity: 0;
   visibility: hidden;

@@ -4,16 +4,16 @@ import sys
 import time
 from playwright.sync_api import sync_playwright
 
-out_dir = sys.argv[1] if len(sys.argv) > 1 else 'shots_v12'
+out_dir = sys.argv[1] if len(sys.argv) > 1 else 'shots_v18'
 os.makedirs(out_dir, exist_ok=True)
 
 html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'index.html')).replace('\\', '/')
 file_url = f'file:///{html_path}?intro=0'
 
 shots = [
-    ('01_loading_wireframe_35pct.png', 'load', 0.35, False),
-    ('02_loading_materialize_86pct.png', 'load', 0.86, False),
-    ('03_dive_vertical_shaft_mid.png', 'dive', 0.58, True),
+    ('01_loading_wireframe_45pct.png', 'load', 0.45, False),
+    ('02_materialize_wave_52pct.png', 'mat', 0.52, True),
+    ('03_dive_vertical_shaft_mid.png', 'dive', 1.15, True),
     ('04_sovereign_audience_landing.png', 'preset', 'sovereign', True),
     ('05_masterpiece_sacred_closeup.png', 'preset', 'masterpiece', True),
     ('06_mezzanine_overlook_vista.png', 'preset', 'mezzanine', True),
@@ -57,6 +57,8 @@ with sync_playwright() as p:
         hide_js = str(hide_ui).lower()
         if mode == 'load':
             page.evaluate(f'() => window.__CATHEDRAL_DEBUG__.setLoadingProgress({arg}, {{ hideUi: {hide_js} }})')
+        elif mode == 'mat':
+            page.evaluate(f'() => window.__CATHEDRAL_DEBUG__.setMaterializeProgress({arg}, {{ hideUi: {hide_js} }})')
         elif mode == 'dive':
             page.evaluate(f'() => window.__CATHEDRAL_DEBUG__.setDiveTime({arg}, {{ hideUi: {hide_js} }})')
         else:

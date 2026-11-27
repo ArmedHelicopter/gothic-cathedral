@@ -10,13 +10,18 @@ import { createPedestalsComponent } from './pedestals.js';
 import { createLightingComponent } from './lighting.js';
 import { createCathedralPostFX } from './postfx.js';
 import { createInteriorCollider } from './collision.js';
-import { createCameraController, PRESETS } from './camera.js';
+import { createCameraController } from './camera.js';
 import { createUIController } from './ui.js';
 
 function showFallback() {
   const fb = document.getElementById('webgl-fallback');
   if (fb) fb.hidden = false;
 }
+
+const smooth01 = (e0, e1, v) => {
+  const t = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
 
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
@@ -45,6 +50,7 @@ async function init() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.04;
+  renderer.localClippingEnabled = true;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.12, 180);
@@ -64,6 +70,9 @@ async function init() {
   solidWorldGroup.visible = false;
   scene.add(wireframeGroup, solidWorldGroup);
 
+  // Horizontal world clipping plane for the top-down Wireframe -> Solid Marble scan wave (keeps p.y >= scanY)
+  const scanClipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -30.0);
+
   let ui = null;
   let cameraRig = null;
   let scrollTourMode = false;
@@ -80,30 +89,48 @@ async function init() {
   function applyLoadingVisuals(p01) {
     const p = THREE.MathUtils.clamp(p01, 0, 1);
     realLoadProgress = p;
-    const wireDraw = Math.min(1, p / 0.84);
-    const wireOpacity = p < 0.80 ? 1.0 : Math.max(0.0, 1.0 - (p - 0.80) / 0.20);
-    mats.wireframeLineMat.uniforms.uWireProgress.value = wireDraw * wireDraw * (3 - 2 * wireDraw);
-    mats.wireframeLineMat.uniforms.uWireOpacity.value = wireOpacity;
-    wireframeGroup.visible = wireOpacity > 0.01;
-
-    const matAlpha = p < 0.64 ? 0.0 : Math.min(1.0, (p - 0.64) / 0.36);
-    solidWorldGroup.visible = p > 0.64 && (lighting !== null);
-    lighting.setMaterializeProgress(matAlpha * matAlpha * (3 - 2 * matAlpha));
+    renderer.clippingPlanes = [];
+    solidWorldGroup.visible = false;
+    wireframeGroup.visible = true;
+    mats.wireframeLineMat.uniforms.uScanY.value = 30.0;
+    mats.wireframeLineMat.uniforms.uWireProgress.value = smooth01(0.0, 0.96, p);
+    mats.wireframeLineMat.uniforms.uWireOpacity.value = 1.0;
 
     ui?.setLoadProgress(p);
     cameraRig?.setLoadingProgress(p);
   }
 
+  function applyMaterializeVisuals(m01, scanY) {
+    solidWorldGroup.visible = true;
+    const wireFade = 1.0 - smooth01(0.86, 1.0, m01);
+    wireframeGroup.visible = wireFade > 0.01;
+    mats.wireframeLineMat.uniforms.uWireProgress.value = 1.0;
+    mats.wireframeLineMat.uniforms.uScanY.value = scanY;
+    mats.wireframeLineMat.uniforms.uWireOpacity.value = wireFade;
+
+    scanClipPlane.constant = -scanY;
+    renderer.clippingPlanes = m01 < 0.99 ? [scanClipPlane] : [];
+    lighting.setMaterializeProgress(0.35 + 0.65 * smooth01(0.0, 0.85, m01));
+  }
+
   cameraRig = createCameraController(camera, canvas, collider, {
+    onMaterializeStep({ m, scanY }) {
+      applyMaterializeVisuals(m, scanY);
+    },
     onDiveStep({ motionBlur }) {
       postfx.setMotionBlur(motionBlur || 0);
     },
     onStageChange(stage) {
       ui?.setStage(stage);
       if (stage === 'loading') {
+        renderer.clippingPlanes = [];
         solidWorldGroup.visible = false;
         wireframeGroup.visible = true;
+      } else if (stage === 'materialize') {
+        solidWorldGroup.visible = true;
+        wireframeGroup.visible = true;
       } else {
+        renderer.clippingPlanes = [];
         wireframeGroup.visible = false;
         mats.wireframeLineMat.uniforms.uWireOpacity.value = 0.0;
         solidWorldGroup.visible = true;
@@ -116,7 +143,8 @@ async function init() {
   });
 
   function renderAll() {
-    if (foundation && solidWorldGroup.visible) {
+    const floorMaterialized = renderer.clippingPlanes.length === 0 || scanClipPlane.constant >= 0.0;
+    if (foundation && solidWorldGroup.visible && floorMaterialized) {
       foundation.updateReflection(renderer, scene, camera);
     }
     postfx.render(scene, camera);
@@ -135,7 +163,6 @@ async function init() {
   }
   window.addEventListener('resize', onResize);
 
-  // Start lightweight render loop immediately so Frame 1 shows genuine 0% wireframe sketch
   let lastTime = null;
   let perfFrames = 0;
   let perfSum = 0;
@@ -185,18 +212,14 @@ async function init() {
   }
   requestAnimationFrame(animate);
 
-  // Genuine Async Resource Pipeline (0% -> 100%, each step executes real synthesis/GPU work!)
   const earlyUI = createUIController({ pinAnchors: {} });
   ui = earlyUI;
   applyLoadingVisuals(0.0);
 
+  // Task 0 builds Spiral Staircase wireframe IMMEDIATELY so blueprint linework draws from frame 1!
   const loadTasks = [
-    { weight: 10, run: () => matFactory.buildCoreStoneAndMetal() },
-    { weight: 10, run: () => matFactory.buildFloorsAndDraperies() },
-    { weight: 8, run: () => matFactory.buildStainedGlassAndVFX() },
-    { weight: 10, run: () => textures.uploadAllToGPU(renderer) },
     {
-      weight: 14,
+      weight: 10,
       run: () => {
         spiralStaircase = createSpiralStaircaseComponent(mats);
         wireframeGroup.add(spiralStaircase.wireframeMesh);
@@ -206,16 +229,20 @@ async function init() {
     {
       weight: 10,
       run: () => {
-        foundation = createFoundationComponent(mats);
-        solidWorldGroup.add(foundation.group);
-      },
-    },
-    {
-      weight: 14,
-      run: () => {
         gothicShell = createGothicShellComponent(mats);
         wireframeGroup.add(gothicShell.wireframeMesh);
         solidWorldGroup.add(gothicShell.group);
+      },
+    },
+    { weight: 10, run: () => matFactory.buildCoreStoneAndMetal() },
+    { weight: 10, run: () => matFactory.buildFloorsAndDraperies() },
+    { weight: 8, run: () => matFactory.buildStainedGlassAndVFX() },
+    { weight: 10, run: () => textures.uploadAllToGPU(renderer) },
+    {
+      weight: 8,
+      run: () => {
+        foundation = createFoundationComponent(mats);
+        solidWorldGroup.add(foundation.group);
       },
     },
     {
@@ -223,6 +250,7 @@ async function init() {
       run: () => {
         veiledPainting = createVeiledPaintingComponent(textures, mats);
         solidWorldGroup.add(veiledPainting.group);
+        textures.uploadAllToGPU(renderer);
       },
     },
     {
@@ -246,8 +274,16 @@ async function init() {
       run: () => {
         lighting.setMaterializeProgress(1.0);
         solidWorldGroup.visible = true;
-        lighting.bakeStaticShadows();
+        // Pre-compile both clipping-plane materialize shaders and bake static shadows inside Task 10!
+        scanClipPlane.constant = -8.0;
+        renderer.clippingPlanes = [scanClipPlane];
         renderer.compile(scene, camera);
+        lighting.bakeStaticShadows();
+        postfx.render(scene, camera);
+        renderer.clippingPlanes = [];
+        renderer.compile(scene, camera);
+        postfx.render(scene, camera);
+        solidWorldGroup.visible = false;
       },
     },
   ];
@@ -261,12 +297,12 @@ async function init() {
     const pct = doneWeight / totalWeight;
     applyLoadingVisuals(pct);
     renderAll();
-    // Pause at least 2 animation frames per pipeline batch so real loading progress visibly sketches out the staircase!
+    // 3 frames per real resource batch lets the architectural wireframe sweep clearly across the screen
+    await nextFrame();
     await nextFrame();
     await nextFrame();
   }
 
-  // Register modular components for external inspection/modification
   window.__CATHEDRAL_COMPONENTS__ = {
     spiralStaircase,
     foundation,
@@ -309,7 +345,6 @@ async function init() {
     selectExhibit(exhibitOrder[nextIdx]);
   }
 
-  // Bind full Explore HUD controller
   ui = createUIController({
     pinAnchors: {
       ...pedestals.pinAnchors,
@@ -331,12 +366,11 @@ async function init() {
       activeExhibitId = null;
       pedestals.setActiveExhibit(null, null);
       ui?.setActivePreset('sovereign');
-      cameraRig.startDive();
+      cameraRig.startMaterializeAndDive();
     },
   });
   ui.setActivePreset('sovereign');
 
-  // Mouse wheel: zoom FOV or cycle exhibits
   let lastWheelStep = 0;
   window.addEventListener(
     'wheel',
@@ -357,7 +391,6 @@ async function init() {
     { passive: false }
   );
 
-  // Raycasting for pedestal cloches & Sovereign Painting
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const interactiveMeshes = [...pedestals.hitMeshes, veiledPainting.hitMesh];
@@ -392,8 +425,8 @@ async function init() {
   if (params.get('intro') === '0') {
     cameraRig.finishDiveToExplore();
   } else {
-    // 100% Loaded -> Immediately launch exact 1.70s FPV dive down Spiral Staircase well!
-    cameraRig.startDive();
+    // 100% Loaded -> Launch 1.35s Spatial Materialization Wave followed seamlessly by 3.00s FPV Dive!
+    cameraRig.startMaterializeAndDive();
   }
 
   window.__CATHEDRAL_DEBUG__ = {
@@ -401,11 +434,17 @@ async function init() {
       document.body.dataset.hideUi = hideUi ? 'true' : 'false';
       cameraRig.setLoadingProgress(p01);
       applyLoadingVisuals(p01);
-      if (p01 > 0.68) lighting.bakeStaticShadows();
+      renderAll();
+    },
+    setMaterializeProgress(m01, { hideUi = true } = {}) {
+      document.body.dataset.hideUi = hideUi ? 'true' : 'false';
+      cameraRig.setMaterializeProgress(m01);
+      lighting.update(0, 1.0, camera);
       renderAll();
     },
     setDiveTime(sec, { hideUi = true } = {}) {
       document.body.dataset.hideUi = hideUi ? 'true' : 'false';
+      renderer.clippingPlanes = [];
       wireframeGroup.visible = false;
       solidWorldGroup.visible = true;
       lighting.setMaterializeProgress(1.0);
@@ -415,6 +454,7 @@ async function init() {
     },
     goToPreset(presetKey, { hideUi = true } = {}) {
       document.body.dataset.hideUi = hideUi ? 'true' : 'false';
+      renderer.clippingPlanes = [];
       wireframeGroup.visible = false;
       solidWorldGroup.visible = true;
       lighting.setMaterializeProgress(1.0);
@@ -425,6 +465,7 @@ async function init() {
     },
     setCamera(posArr, targetArr, { hideUi = true, fov = 44 } = {}) {
       document.body.dataset.hideUi = hideUi ? 'true' : 'false';
+      renderer.clippingPlanes = [];
       wireframeGroup.visible = false;
       solidWorldGroup.visible = true;
       lighting.setMaterializeProgress(1.0);

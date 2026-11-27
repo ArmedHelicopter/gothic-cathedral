@@ -93,7 +93,7 @@ html_out = f"""<!doctype html>
           <button type="button" id="btn-preset-stainedglass" class="pill-btn">花窗光影</button>
           <button type="button" id="btn-preset-spiral" class="pill-btn">螺旋阶梯</button>
           <button type="button" id="btn-scroll-mode" class="pill-btn">滚轮 · 视野缩放</button>
-          <button type="button" id="btn-replay-dive" class="pill-btn">重播俯冲</button>
+          <button type="button" id="btn-replay-dive" class="pill-btn">重播开场俯冲</button>
         </div>
       </header>
 
