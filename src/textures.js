@@ -28,7 +28,7 @@ function px(ctx, x, y, w, h, color) {
   ctx.fillRect(Math.floor(x), Math.floor(y), Math.max(1, Math.floor(w)), Math.max(1, Math.floor(h)));
 }
 
-const MAGPIE_SVG_PATH =
+export const MAGPIE_SVG_PATH =
   'M1.5 5.5C1.3 5.7 1.2 6.5 1.2 6.9C1.2 6.9 1.2 7 1.2 7.1C1.1 7.4 1.3 8 1.4 8.3C1.4 8.4 1.5 8.5 1.5 8.7C1.5 8.9 1.7 9 1.8 9.3C2.2 9.9 2.2 10 2.3 10.1C2.4 10.2 2.5 10.3 2.6 10.5C2.8 10.8 3 11.1 3.2 11.3C3.3 11.3 3.4 11.6 3.6 11.8C3.8 12 4.1 12.4 4.2 12.5C4.7 13 5.2 13.7 5.4 13.9C6 14.5 6.5 15.1 6.7 15.3C6.7 15.4 6.9 15.5 6.9 15.7C7.3 15.9 7.7 16.5 7.9 16.8C7.9 16.8 8 16.9 8 16.9C8.1 16.9 8.2 17.2 8.2 17.3C8.2 17.3 8.1 17.2 8.1 17.1C7.9 16.9 7.9 16.9 7.6 16.6C7.5 16.5 7.4 16.5 7.4 16.3C7.2 16.2 6.7 15.7 6.3 15.2C6.1 15.1 6 14.9 6 14.9C5.9 14.8 5.7 14.7 5.7 14.6C5.6 14.5 5.4 14.3 5.3 14.2C5.1 14.1 4.9 13.8 4.7 13.5C4.5 13.3 4.2 13.1 4.1 12.9C4.1 12.9 3.8 12.7 3.8 12.5C3.5 12.3 3 11.8 2.8 11.4C1.8 10.5 0.9 9.6 0.7 9.6C0.6 9.7 0.6 9.8 0.5 10C0.5 10.1 0.6 10.2 0.5 10.3C0.5 10.4 0.6 10.5 0.6 10.6C0.5 10.7 0.5 10.9 0.6 11C0.5 11.1 0.6 11.4 0.6 11.5C0.9 12.9 1.3 13.8 2.8 14.9C2.9 15.1 3.3 15.3 3.4 15.4C3.4 15.5 3.6 15.6 3.7 15.7C4.2 16 6.4 17.8 7 18.4C7.4 18.8 7.4 18.8 7.5 18.9C7.6 19 7.7 19 7.7 19.1C7.7 19.2 7.8 19.2 7.9 19.2C7.9 19.3 8.1 19.4 8.1 19.5C8.2 19.6 8.2 19.7 8.3 19.7C8.3 19.7 8.3 19.7 8.2 19.7C8.2 19.6 8.1 19.6 8 19.6C7.9 19.5 7.9 19.4 7.8 19.4C7.7 19.3 7.6 19.2 7.6 19.2C7.6 19.1 7.5 19 7.3 18.9C7.2 18.9 6.9 18.6 6.7 18.4C6.1 17.8 4.5 16.6 3.5 16C3.4 15.8 3 15.6 2.9 15.5C2.6 15.3 1.5 14.6 0.9 14.3C0.7 14.1 0.6 14.1 0.6 14.2C0.5 14.5 0.8 15.9 0.9 16.1C0.9 16.2 1 16.2 0.9 16.3C1.2 16.8 1.9 17.6 2.7 18.3C2.8 18.5 4 19.2 4.7 19.5C6.2 20.5 6.6 20.7 7.4 21.5C8.2 22.2 8.7 22.7 9.3 23.6C9.5 24.1 9.9 24.4 10.3 25.3C10.4 25.5 10.5 25.8 10.5 25.8C10.7 25.8 10.8 25.7 11 25.4C11.6 25 11.9 24.6 12.3 24.3C12.8 24 13 23.8 13 23.7C13.1 23.7 13.1 23.8 13 24C12 24.8 11 26 10.2 26.9C10.1 27.1 9.9 27.5 9.7 27.7C9.5 27.8 9.4 28 9.4 28C9.4 28 9.3 28.3 9.1 28.5C8.6 29.2 7.7 30.8 7.7 30.9C7.7 31 7.8 31 8.3 30.8C9 30.4 9.5 30.2 10.4 30C11.7 29.6 12.5 29.6 11.6 30C10.5 30.2 9.7 30.6 9.2 31.2C8.8 31.7 8.8 31.7 9.3 31.7C10.1 31.8 10.9 31.9 11.6 32.2C12.8 32.7 13.5 33.1 15.5 34.8C16.4 35.5 17.3 36.2 17.8 36.4C17.9 36.5 18.1 36.7 18.2 36.8C19.1 37.3 21.2 38.1 22.3 38.3C22.4 38.3 22.7 38.3 22.8 38.3C22.8 38.5 23 38.5 23 38.5C23.1 38.5 23.2 38.5 23.3 38.5C23.6 38.6 25.9 38.6 26.1 38.5C26.2 38.5 26.3 38.5 26.4 38.5C26.5 38.5 26.6 38.5 26.7 38.3C26.7 38.3 27 38.3 27.1 38.3C28.3 38.1 30.2 37.3 31.4 36.7C31.5 36.7 31.7 36.4 31.8 36.4C32.2 36.2 33.2 35.4 33.4 35.2C34.2 34.5 35.5 33 35.8 32.6C35.8 32.5 36 32.2 36.1 32C36.4 31.8 36.6 31.4 36.6 31.2C36.7 31.1 36.8 30.9 36.9 30.8C37.2 30.4 37.5 29.6 37.7 29.2C37.7 29.1 37.8 28.7 37.9 28.7C38.1 28.5 38.4 27.1 38.5 26.8C39 25.2 39.1 23.7 39 22.4C39 22.2 38.9 21.9 38.9 21.8C38.9 21.7 38.9 21.6 38.9 21.4C38.6 20.5 38.5 19.9 38.2 19C37.9 18.5 37.5 17.5 37.3 17.2C37 16.8 36.8 15.8 36.8 15.2C36.8 13.8 37.7 12.7 39.6 12.2C40.1 12.1 41.3 11.8 42.1 11.7C43.5 11.5 43.5 11.5 43.4 11.3C42.9 10.7 40.9 9.9 39.2 9.7C37.9 9.5 38.1 9.5 37.6 9C37 8.6 36.4 8 36 7.9C36 7.8 35.8 7.8 35.7 7.7C35.1 7.3 34.2 7 33.1 6.9C32.6 6.7 31.6 6.9 31 7C29.6 7.3 28.3 8 27.3 9.2C26.7 9.8 26.2 10.8 25.7 11.7C25.5 12.1 24.8 13.4 24.7 13.7C24.6 13.9 24.5 14.1 24.1 14.7C23.5 15.7 22.1 16.9 20.6 17.8C20.5 18 20.3 18.2 20.1 18.3C19.7 18.5 19.4 18.8 19.1 19C18.9 19.1 18.7 19.3 18.5 19.4C18 19.8 17.2 20.3 17 20.5C16.9 20.5 16.8 20.6 16.7 20.7C16.3 20.8 16.1 20.9 16 20.9C15.5 20.8 14.9 20.5 14.2 20.2C13.7 19.8 12.7 18.9 12.4 18.6C12.3 18.5 12.2 18.4 12.1 18.2C11.9 18 11.2 17.1 11 16.6C10.9 16.5 10.8 16.4 10.7 16.3C10.7 16.2 10.6 16.1 10.6 15.9C10.5 15.9 10.4 15.7 10.4 15.6C10.3 15.5 10.2 15.2 10.1 15C10 14.8 9.8 14.4 9.7 14.2C9.6 14 9.5 13.7 9.4 13.6C9.4 13.4 9.3 13.2 9.2 13C9.2 12.8 9 12.6 9 12.5C8.9 12.3 8.7 12.1 8.7 12C8.7 12 8.5 11.7 8.5 11.7C8.3 11.2 8.2 10.9 7.5 10C6.4 8.3 4.2 6.4 2.7 5.8C2 5.5 1.6 5.4 1.5 5.5ZM28.4 16.7C29.2 16.9 29.7 17.2 29.9 17.7C30.1 18.2 30 18.9 29.6 19.4C29.2 19.9 28.2 20.9 27.6 21.2C26.8 21.7 25.3 22.4 24.2 22.7C23.9 22.8 23.6 22.9 23.5 22.9C22.8 23.2 20.7 23.7 19.6 24C19 24.2 18.4 24.3 18.1 24.4C17.9 24.4 16.1 24.9 15.3 25.1C14.6 25.2 14.7 25.1 15.7 23.6C16.4 22.7 18.5 20.6 19.4 19.9C20.8 18.8 21.4 18.4 23.2 17.6C23.8 17.4 25.6 16.8 25.9 16.8C25.9 16.8 26.3 16.8 26.6 16.7C26.8 16.7 28.2 16.7 28.4 16.7ZM30.4 20.2C30.5 20.3 30.6 20.6 30.6 20.7C31.7 23.1 33.4 24.6 35.6 25.3C36.1 25.5 36.7 25.7 37.2 25.8C37.7 25.8 37.8 25.9 37.8 26.1C37.7 26.2 37.7 26.3 37.7 26.5C37.7 26.6 37.7 26.8 37.6 27C37.4 28.5 36.8 29.9 36.1 31C36.1 31.2 35.9 31.4 35.9 31.6C35.7 31.9 35.2 32.6 34.7 33.3C32.6 35.6 29.7 37.3 26.6 37.8C26.5 37.8 26.3 37.9 26.2 37.9C25.8 37.9 23.7 37.9 23.3 37.9C23.2 37.9 23 37.8 22.9 37.8C21.1 37.6 19.3 36.8 18 35.7C17.7 35.4 17 34.7 16.8 34.5C16.3 33.8 16.1 33 16.3 32.5C16.5 31.8 16.8 31.6 17.9 31.1C19.1 30.5 19.4 30.4 20.2 30C21.4 29.4 23.2 28.4 23.9 27.9C23.9 27.8 24.2 27.7 24.5 27.6C26.3 26.3 28 24.6 28.9 22.9C29.5 22.2 29.7 21.6 29.9 20.7C30.1 20 30.2 19.9 30.4 20.2Z';
 
 export function createCathedralTextures(renderer) {
@@ -59,39 +59,48 @@ export function createCathedralTextures(renderer) {
     return tex;
   }
 
-  /**
-   * Seamless 128x128 Carrara alabaster marble with subtle stone courses & organic cloud variation
-   * (zero repetitive diagonal squiggle patterns).
-   */
+  /** Smooth 256x256 honed Carrara marble with subtle organic veining & zero pixelated blocks up close. */
   function carraraMarble(label = 'carrara-marble', repeat = [1, 1], seed = 101) {
-    const S = 128;
+    const S = 256;
     const c = makeCanvas(S, S);
     const ctx = c.getContext('2d');
     const rand = mulberry32(seed);
-    px(ctx, 0, 0, S, S, '#edf1f8');
+    ctx.fillStyle = '#eff3fa';
+    ctx.fillRect(0, 0, S, S);
 
-    // Fine organic limestone grain & micro-dither
-    const tones = ['#e6ebf5', '#f3f6fc', '#dfe5f2', '#e9eef8'];
-    for (let y = 0; y < S; y += 2) {
-      for (let x = 0; x < S; x += 2) {
-        const wave = Math.sin(x * 0.098 + Math.cos(y * 0.098) * 1.4) * 0.5 + 0.5;
-        if (wave > 0.62 || rand() < 0.25) {
-          px(ctx, x, y, 2, 2, tones[Math.floor(rand() * tones.length)]);
-        }
+    // Subtle soft mineral veining + cloud variation
+    for (let k = 0; k < 14; k++) {
+      ctx.strokeStyle = k % 2 === 0 ? 'rgba(136, 156, 194, 0.14)' : 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1.2 + rand() * 2.2;
+      ctx.beginPath();
+      const y0 = rand() * S;
+      ctx.moveTo(0, y0);
+      ctx.bezierCurveTo(S * 0.35, y0 + (rand() - 0.5) * 44, S * 0.65, y0 + (rand() - 0.5) * 44, S, y0);
+      ctx.stroke();
+    }
+
+    for (let i = 0; i < 2400; i++) {
+      px(ctx, rand() * S, rand() * S, 1.5, 1.5, rand() > 0.5 ? 'rgba(220,228,244,0.32)' : 'rgba(255,255,255,0.4)');
+    }
+
+    // Fine hairline architectural ashlar courses
+    ctx.strokeStyle = 'rgba(138, 158, 194, 0.22)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y < S; y += 64) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(S, y);
+      ctx.stroke();
+      const off = ((y / 64) % 2) * 64;
+      for (let x = off; x < S; x += 128) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + 64);
+        ctx.stroke();
       }
     }
 
-    // Subtle ashlar stone joints every 32px
-    for (let y = 0; y < S; y += 32) {
-      px(ctx, 0, y, S, 1, 'rgba(138,154,184,0.22)');
-      px(ctx, 0, y + 1, S, 1, 'rgba(255,255,255,0.55)');
-      const off = ((y / 32) % 2) * 32;
-      for (let x = off; x < S; x += 64) {
-        px(ctx, x, y, 1, 32, 'rgba(138,154,184,0.18)');
-      }
-    }
-
-    return register(label, c, { repeat, pixel: true, mip: true });
+    return register(label, c, { repeat, pixel: false, mip: true });
   }
 
   /** Crisp 64x64 honed obsidian-slate with clear block seams & silver-navy rim highlights. */
@@ -116,71 +125,148 @@ export function createCathedralTextures(renderer) {
     return register(label, c, { repeat, pixel: true, mip: true });
   }
 
-  /** Crisp 64x64 Prussian navy Gothic slate/ashlar masonry with visible bevel highlights. */
+  /** Fine 128x128 honed Prussian-sapphire limestone ashlar (quiet Minimalist Gothic wall planes, no chunky subway brick). */
   function navyAshlar(label = 'navy-ashlar', repeat = [1, 1], seed = 303) {
-    const S = 64;
+    const S = 128;
     const c = makeCanvas(S, S);
     const ctx = c.getContext('2d');
     const rand = mulberry32(seed);
-    px(ctx, 0, 0, S, S, '#192e57');
-    const rows = 8;
+    px(ctx, 0, 0, S, S, '#152c5c');
+    const rows = 4;
     const rh = S / rows;
-    const cw = 16;
+    const cw = 64;
     for (let r = 0; r < rows; r++) {
-      const off = (r % 2) * 8;
+      const off = (r % 2) * 32;
       for (let sx = -cw; sx < S; sx += cw) {
         const x = sx + off;
         const y = r * rh;
-        const d = Math.floor((rand() - 0.5) * 18);
-        const rr = Math.max(16, Math.min(60, 28 + d));
-        const gg = Math.max(32, Math.min(88, 52 + d));
-        const bb = Math.max(66, Math.min(152, 104 + d));
-        px(ctx, x + 1, y + 1, cw - 1, rh - 1, `rgb(${rr},${gg},${bb})`);
-        px(ctx, x + 1, y + 1, cw - 1, 1, 'rgba(204,224,255,0.24)');
-        px(ctx, x + 1, y + rh - 1, cw - 1, 1, 'rgba(7,12,26,0.48)');
+        const d = Math.floor((rand() - 0.5) * 10);
+        const rr = Math.max(14, Math.min(48, 22 + d));
+        const gg = Math.max(32, Math.min(84, 48 + d));
+        const bb = Math.max(72, Math.min(148, 102 + d));
+        ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+        ctx.fillRect(x + 1, y + 1, cw - 2, rh - 2);
+        ctx.fillStyle = 'rgba(196, 222, 255, 0.08)';
+        ctx.fillRect(x + 1, y + 1, cw - 2, 1);
+        ctx.fillStyle = 'rgba(7, 14, 34, 0.24)';
+        ctx.fillRect(x + 1, y + rh - 1, cw - 2, 1);
       }
     }
-    return register(label, c, { repeat, pixel: true, mip: true });
+    for (let i = 0; i < 1600; i++) {
+      px(ctx, rand() * S, rand() * S, 1, 1, rand() > 0.5 ? 'rgba(180,210,255,0.05)' : 'rgba(6,12,28,0.08)');
+    }
+    return register(label, c, { repeat, pixel: false, mip: true });
   }
 
-  /** Geometric inlaid Gothic nave floor tile pattern: honed dark slate + restrained slate-silver hairline border + navy lozenges. */
+  /** Ceremonial Royal-Navy & Alabaster woven sanctuary carpet runner with delicate Gothic borders. */
+  function ceruleanCarpetTex(label = 'cerulean-carpet') {
+    const W = 256;
+    const H = 512;
+    const albedo = makeCanvas(W, H);
+    const bump = makeCanvas(W, H);
+    const ctx = albedo.getContext('2d');
+    const btx = bump.getContext('2d');
+    const rand = mulberry32(818);
+
+    ctx.fillStyle = '#11295c';
+    ctx.fillRect(0, 0, W, H);
+    btx.fillStyle = 'rgb(130,130,130)';
+    btx.fillRect(0, 0, W, H);
+
+    // Subtle woven tufted grain + sapphire inner pile gradient
+    const pileGrad = ctx.createLinearGradient(0, 0, W, 0);
+    pileGrad.addColorStop(0.0, '#0d1e45');
+    pileGrad.addColorStop(0.16, '#132e68');
+    pileGrad.addColorStop(0.5, '#193b82');
+    pileGrad.addColorStop(0.84, '#132e68');
+    pileGrad.addColorStop(1.0, '#0d1e45');
+    ctx.fillStyle = pileGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    for (let y = 0; y < H; y += 2) {
+      for (let x = 0; x < W; x += 2) {
+        const v = rand();
+        if (v < 0.28) {
+          ctx.fillStyle = v < 0.14 ? 'rgba(130, 178, 255, 0.06)' : 'rgba(6, 14, 34, 0.12)';
+          ctx.fillRect(x, y, 2, 2);
+          btx.fillStyle = v < 0.14 ? 'rgb(165,165,165)' : 'rgb(96,96,96)';
+          btx.fillRect(x, y, 2, 2);
+        }
+      }
+    }
+
+    // Repeating Gothic damask diamond filigree down carpet center
+    ctx.strokeStyle = 'rgba(164, 204, 255, 0.22)';
+    ctx.lineWidth = 2;
+    for (let cy = 64; cy < H; cy += 128) {
+      ctx.beginPath();
+      ctx.moveTo(W / 2, cy - 42);
+      ctx.lineTo(W / 2 + 42, cy);
+      ctx.lineTo(W / 2, cy + 42);
+      ctx.lineTo(W / 2 - 42, cy);
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(W / 2, cy, 10, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Crisp outer silver-white & alabaster double borders on both edges
+    for (const bx of [10, W - 26]) {
+      ctx.fillStyle = '#e8f0ff';
+      ctx.fillRect(bx, 0, 16, H);
+      btx.fillStyle = 'rgb(200,200,200)';
+      btx.fillRect(bx, 0, 16, H);
+    }
+    for (const sx of [32, W - 36]) {
+      ctx.fillStyle = '#8db4f2';
+      ctx.fillRect(sx, 0, 4, H);
+    }
+
+    return {
+      map: register(`${label}-albedo`, albedo, { repeat: [1, 8], pixel: false, mip: true }),
+      bumpMap: register(`${label}-bump`, bump, { srgb: false, repeat: [1, 8], pixel: false, mip: true }),
+    };
+  }
+
+  /** Crisp 256x256 polished Gothic sapphire-marble inlaid floor tile (antialiased diagonal borders, zero stairstep pixels). */
   function naveInlayFloor(label = 'nave-inlay-floor', repeat = [5, 11]) {
-    const S = 64;
+    const S = 256;
     const c = makeCanvas(S, S);
     const ctx = c.getContext('2d');
     const rand = mulberry32(404);
-    px(ctx, 0, 0, S, S, '#151d32');
-    for (let y = 0; y < S; y++) {
-      for (let x = 0; x < S; x++) {
-        if (rand() < 0.22) px(ctx, x, y, 1, 1, rand() > 0.5 ? '#1d2844' : '#101728');
-      }
+    ctx.fillStyle = '#131d34';
+    ctx.fillRect(0, 0, S, S);
+    for (let i = 0; i < 3200; i++) {
+      px(ctx, rand() * S, rand() * S, 1.5, 1.5, rand() > 0.5 ? '#1b2847' : '#0f172b');
     }
-    ctx.strokeStyle = '#3f5788';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(1.5, 1.5, S - 3, S - 3);
+    ctx.strokeStyle = 'rgba(72, 102, 162, 0.55)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(4, 4, S - 8, S - 8);
 
-    ctx.fillStyle = '#1f3768';
+    ctx.fillStyle = '#1b3469';
     ctx.beginPath();
-    ctx.moveTo(S / 2, 10);
-    ctx.lineTo(S - 10, S / 2);
-    ctx.lineTo(S / 2, S - 10);
-    ctx.lineTo(10, S / 2);
+    ctx.moveTo(S / 2, 34);
+    ctx.lineTo(S - 34, S / 2);
+    ctx.lineTo(S / 2, S - 34);
+    ctx.lineTo(34, S / 2);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#5f7bb3';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#6c92d4';
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    ctx.fillStyle = '#aebfd9';
+    ctx.fillStyle = '#b4c9eb';
     ctx.beginPath();
-    ctx.moveTo(S / 2, S / 2 - 4);
-    ctx.lineTo(S / 2 + 4, S / 2);
-    ctx.lineTo(S / 2, S / 2 + 4);
-    ctx.lineTo(S / 2 - 4, S / 2);
+    ctx.moveTo(S / 2, S / 2 - 14);
+    ctx.lineTo(S / 2 + 14, S / 2);
+    ctx.lineTo(S / 2, S / 2 + 14);
+    ctx.lineTo(S / 2 - 14, S / 2);
     ctx.closePath();
     ctx.fill();
 
-    return register(label, c, { repeat, pixel: true, mip: true });
+    return register(label, c, { repeat, pixel: false, mip: true });
   }
 
   function linenCloth(label = 'linen-cloth') {
@@ -341,7 +427,7 @@ export function createCathedralTextures(renderer) {
     return register(label, c, { repeat: [2, 3], pixel: true, mip: true });
   }
 
-  /** Harmonious Gothic grisaille pointed-lancet stained glass (balanced luminosity, zero hotspots). */
+  /** Serene Cerulean-Azure Cathedral Leaded Stained Glass (tranquil Sainte-Chapelle azure sky gradient + delicate leadwork). */
   function lancetGlass(label = 'lancet-glass') {
     const W = 128;
     const H = 384;
@@ -349,50 +435,57 @@ export function createCathedralTextures(renderer) {
     const emissive = makeCanvas(W, H);
 
     for (const [ctx, isEmissive] of [[albedo.getContext('2d'), false], [emissive.getContext('2d'), true]]) {
-      ctx.fillStyle = isEmissive ? '#132754' : '#0d1d40';
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      if (isEmissive) {
+        grad.addColorStop(0.0, '#7eb4ff');
+        grad.addColorStop(0.32, '#4184f2');
+        grad.addColorStop(0.75, '#2558be');
+        grad.addColorStop(1.0, '#163884');
+      } else {
+        grad.addColorStop(0.0, '#8cc0ff');
+        grad.addColorStop(0.35, '#4688f0');
+        grad.addColorStop(0.80, '#2252b2');
+        grad.addColorStop(1.0, '#133172');
+      }
+      ctx.fillStyle = grad;
       ctx.fillRect(0, 0, W, H);
 
-      const cols = 4;
-      const rows = 12;
-      const cw = W / cols;
-      const rh = H / rows;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cx = (c + 0.5) * cw;
-          const cy = (r + 0.5) * rh;
-          const isCenterCol = c === 1 || c === 2;
-          ctx.fillStyle = isCenterCol
-            ? isEmissive
-              ? '#9bb8e8'
-              : '#97b4e4'
-            : isEmissive
-            ? '#244685'
-            : '#1d3970';
-          ctx.beginPath();
-          ctx.moveTo(cx, cy - rh * 0.44);
-          ctx.lineTo(cx + cw * 0.44, cy);
-          ctx.lineTo(cx, cy + rh * 0.44);
-          ctx.lineTo(cx - cw * 0.44, cy);
-          ctx.closePath();
-          ctx.fill();
-        }
-      }
+      // Subtle translucent celestial panes with soft inner vertical halo
+      const centerHalo = ctx.createRadialGradient(W * 0.5, H * 0.38, 6, W * 0.5, H * 0.42, W * 0.65);
+      centerHalo.addColorStop(0, 'rgba(220, 240, 255, 0.42)');
+      centerHalo.addColorStop(0.65, 'rgba(130, 184, 255, 0.14)');
+      centerHalo.addColorStop(1, 'rgba(24, 62, 142, 0.0)');
+      ctx.fillStyle = centerHalo;
+      ctx.fillRect(0, 0, W, H);
 
-      ctx.strokeStyle = '#090e1c';
-      ctx.lineWidth = 3;
+      // Crisp dark navy-iron leaded rectangular & arched lancet mullions
+      ctx.strokeStyle = '#0c1630';
+      ctx.lineWidth = 2.5;
+      const rows = 9;
       for (let r = 0; r <= rows; r++) {
-        const y = r * rh;
+        const y = (r / rows) * H;
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(W, y);
         ctx.stroke();
       }
-      for (let c = 0; c <= cols; c++) {
-        const x = c * cw;
+      for (const x of [W * 0.25, W * 0.5, W * 0.75]) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, H);
         ctx.stroke();
+      }
+      // Subtle frosted alabaster rosette diamond accents along center spine
+      ctx.fillStyle = 'rgba(232, 244, 255, 0.34)';
+      for (let r = 1; r < rows - 1; r++) {
+        const y = ((r + 0.5) / rows) * H;
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5, y - 10);
+        ctx.lineTo(W * 0.5 + 8, y);
+        ctx.lineTo(W * 0.5, y + 10);
+        ctx.lineTo(W * 0.5 - 8, y);
+        ctx.closePath();
+        ctx.fill();
       }
       ctx.lineWidth = 6;
       ctx.strokeRect(3, 3, W - 6, H - 6);
@@ -402,6 +495,32 @@ export function createCathedralTextures(renderer) {
       map: register(`${label}-albedo`, albedo, { wrap: false, pixel: false, mip: true }),
       emissiveMap: register(`${label}-emissive`, emissive, { wrap: false, pixel: false, mip: true }),
     };
+  }
+
+  /** Soft cerulean-azure stained-glass light-pool projection gobo for nave marble floors. */
+  function lancetGoboTex(label = 'lancet-gobo') {
+    const W = 128;
+    const H = 256;
+    const c = makeCanvas(W, H);
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    const g = ctx.createRadialGradient(W * 0.5, H * 0.52, 8, W * 0.5, H * 0.52, W * 0.55);
+    g.addColorStop(0.0, 'rgba(130, 194, 255, 0.85)');
+    g.addColorStop(0.55, 'rgba(60, 128, 242, 0.45)');
+    g.addColorStop(1.0, 'rgba(20, 60, 150, 0.0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle soft twin lancet light silhouette
+    ctx.fillStyle = 'rgba(195, 226, 255, 0.42)';
+    for (const bx of [W * 0.34, W * 0.66]) {
+      ctx.beginPath();
+      ctx.ellipse(bx, H * 0.52, 16, 72, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    return register(label, c, { wrap: false, pixel: false, mip: true });
   }
 
   function roseWindowGlass(label = 'rose-window') {
@@ -464,30 +583,30 @@ export function createCathedralTextures(renderer) {
     return register(label, c, { wrap: false, pixel: false, mip: false });
   }
 
-  /** Crisp high-res museum stone plaque texture carved in Navy & Ivory White. */
+  /** Ultra-crisp 768x256 museum placard in matte sapphire-slate & crisp ivory typography (zero bloom smear). */
   function plaqueLabel(project) {
-    const W = 512;
-    const H = 172;
+    const W = 768;
+    const H = 256;
     const c = makeCanvas(W, H);
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#0e1934';
+    ctx.fillStyle = '#0c1833';
     ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = '#cfe0ff';
-    ctx.lineWidth = 5;
-    ctx.strokeRect(6, 6, W - 12, H - 12);
-    ctx.strokeStyle = '#4064a8';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(15, 15, W - 30, H - 30);
+    ctx.strokeStyle = '#c4d6f4';
+    ctx.lineWidth = 7;
+    ctx.strokeRect(8, 8, W - 16, H - 16);
+    ctx.strokeStyle = '#3b5fa6';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(20, 20, W - 40, H - 40);
 
-    ctx.fillStyle = '#9dbdf0';
-    ctx.font = '700 22px "JetBrains Mono", Consolas, monospace';
+    ctx.fillStyle = '#99bbea';
+    ctx.font = '700 32px "JetBrains Mono", Consolas, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`NO.${project.index} · ${project.lang.toUpperCase()}`, W / 2, 58);
+    ctx.fillText(`NO.${project.index} · ${project.lang.toUpperCase()}`, W / 2, 86);
 
-    ctx.fillStyle = '#f8faff';
-    const fontSize = project.name.length > 20 ? 30 : project.name.length > 14 ? 36 : 42;
+    ctx.fillStyle = '#dde7fa';
+    const fontSize = project.name.length > 20 ? 44 : project.name.length > 14 ? 54 : 64;
     ctx.font = `700 ${fontSize}px Inter, "PingFang SC", system-ui, sans-serif`;
-    ctx.fillText(project.name, W / 2, 122);
+    ctx.fillText(project.name, W / 2, 180);
 
     return register(`plaque-${project.id}`, c, { wrap: false, pixel: false, mip: true });
   }
@@ -757,11 +876,13 @@ export function createCathedralTextures(renderer) {
     carraraMarble,
     obsidianStone,
     navyAshlar,
+    ceruleanCarpetTex,
     naveInlayFloor,
     linenCloth,
     unfinishedCanvasTex,
     gothicDoorWood,
     lancetGlass,
+    lancetGoboTex,
     roseWindowGlass,
     bokehDot,
     plaqueLabel,

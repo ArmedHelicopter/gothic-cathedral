@@ -77,11 +77,15 @@ html_out = f"""<!doctype html>
         </div>
         <div class="hud-actions">
           <a id="btn-home" class="pill-btn" href="https://armedhelicopter.github.io/">← 珞珈主页</a>
-          <button type="button" id="btn-interior" class="pill-btn">殿内中轴视角</button>
-          <button type="button" id="btn-exterior" class="pill-btn">3/4 哥特全景</button>
-          <button type="button" id="btn-replay" class="pill-btn">重播筑殿开门</button>
+          <button type="button" id="btn-gallery" class="pill-btn">2.5D 展廊全景</button>
+          <button type="button" id="btn-interior" class="pill-btn">圣殿地毯中轴</button>
+          <button type="button" id="btn-exterior" class="pill-btn">哥特建筑外观</button>
+          <button type="button" id="btn-scroll-mode" class="pill-btn">滚轮 · 缩放</button>
+          <button type="button" id="btn-replay" class="pill-btn">重播筑路开门</button>
         </div>
       </header>
+
+      <div id="pins-layer" class="pins-layer" aria-label="开源项目展品标签"></div>
 
       <aside id="exhibit-card" class="exhibit-card" aria-hidden="true" role="region" aria-label="展品详情">
         <div class="card-head">
@@ -98,6 +102,10 @@ html_out = f"""<!doctype html>
         <a id="card-link" class="card-link" href="https://github.com/ArmedHelicopter" target="_blank" rel="noopener noreferrer">
           查看开源仓库
         </a>
+        <div class="card-nav">
+          <button type="button" id="card-prev-btn" class="card-step-btn">← 上一件</button>
+          <button type="button" id="card-next-btn" class="card-step-btn">下一件 →</button>
+        </div>
       </aside>
 
       <nav id="exhibit-dock" class="exhibit-dock" aria-label="展品快速导航"></nav>

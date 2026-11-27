@@ -4,9 +4,11 @@ export function createCathedralMaterials(textures) {
   const marbleMap = textures.carraraMarble('carrara-main', [1, 1], 101);
   const obsidianMap = textures.obsidianStone('obsidian-main', [1, 1], 202);
   const navyAshlarMap = textures.navyAshlar('navy-ashlar-main', [1, 1], 303);
+  const carpetTex = textures.ceruleanCarpetTex('cerulean-carpet-main');
   const naveInlayMap = textures.naveInlayFloor('nave-inlay-main', [5, 11]);
   const linen = textures.linenCloth('shroud-linen');
-  const lancet = textures.lancetGlass('lancet-grisaille');
+  const lancet = textures.lancetGlass('lancet-azure');
+  const lancetGoboMap = textures.lancetGoboTex('lancet-gobo-main');
   const rose = textures.roseWindowGlass('rose-grisaille');
   const doorWoodMap = textures.gothicDoorWood('door-wood-main');
   const bokehMap = textures.bokehDot('dust-bokeh');
@@ -76,10 +78,10 @@ export function createCathedralMaterials(textures) {
 
   const naveInlayMat = new THREE.MeshStandardMaterial({
     map: naveInlayMap,
-    color: new THREE.Color('#d4def2'),
-    roughness: 0.58,
-    metalness: 0.04,
-    envMapIntensity: 0.72,
+    color: new THREE.Color('#dce6fa'),
+    roughness: 0.42,
+    metalness: 0.08,
+    envMapIntensity: 0.90,
   });
 
   const shroudMat = new THREE.MeshStandardMaterial({
@@ -104,10 +106,30 @@ export function createCathedralMaterials(textures) {
   const lancetGlassMat = new THREE.MeshStandardMaterial({
     map: lancet.map,
     emissiveMap: lancet.emissiveMap,
-    emissive: new THREE.Color('#709ce8'),
-    emissiveIntensity: 0.50,
-    roughness: 0.28,
+    emissive: new THREE.Color('#478df8'),
+    emissiveIntensity: 0.72,
+    roughness: 0.24,
     metalness: 0.06,
+    side: THREE.DoubleSide,
+  });
+
+  const carpetMat = new THREE.MeshStandardMaterial({
+    map: carpetTex.map,
+    bumpMap: carpetTex.bumpMap,
+    bumpScale: 0.025,
+    color: new THREE.Color('#dce8ff'),
+    roughness: 0.90,
+    metalness: 0.02,
+    envMapIntensity: 0.45,
+  });
+
+  const lancetGoboMat = new THREE.MeshBasicMaterial({
+    map: lancetGoboMap,
+    color: new THREE.Color('#6aa8ff'),
+    transparent: true,
+    opacity: 0.24,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
     side: THREE.DoubleSide,
   });
 
@@ -160,19 +182,20 @@ export function createCathedralMaterials(textures) {
         vec3 N = normalize(vNormalW);
         vec3 V = normalize(vViewDirW);
         float ndotv = clamp(abs(dot(N, V)), 0.0, 1.0);
-        float rim = pow(1.0 - ndotv, 3.6);
+        float rim = pow(max(0.0001, 1.0 - ndotv), 4.2);
 
-        vec3 H1 = normalize(V + uSpecDir);
-        vec3 H2 = normalize(V + normalize(vec3(-0.72, 0.28, 0.62)));
-        float spec1 = pow(max(0.0, dot(N, H1)), 150.0);
-        float spec2 = pow(max(0.0, dot(N, H2)), 96.0) * 0.55;
+        // Razor-crisp twin vertical studio glass reflection streaks + upper dome arc glint
+        vec3 H1 = normalize(V + normalize(vec3(0.56, 0.35, 0.74)));
+        vec3 H2 = normalize(V + normalize(vec3(-0.74, 0.22, 0.63)));
+        float spec1 = pow(max(0.0001, dot(N, H1)), 380.0);
+        float spec2 = pow(max(0.0001, dot(N, H2)), 260.0) * 0.65;
 
-        float baseLip = smoothstep(0.032, 0.0, vLocalPos.y) * 0.52;
-        float domeCrest = smoothstep(0.62, 0.90, vLocalPos.y) * rim * 0.35;
+        float baseLip = smoothstep(0.040, 0.0, vLocalPos.y) * 0.62;
+        float domeCrest = smoothstep(0.56, 0.80, vLocalPos.y) * rim * 0.42;
 
-        vec3 col = mix(uEdgeTint, uRimColor, clamp(rim * 0.8 + 0.35, 0.0, 1.0));
-        col += vec3(1.0) * (spec1 * 1.85 + spec2 * 1.15 + baseLip + domeCrest);
-        float alpha = clamp(0.025 + rim * 0.76 + spec1 * 0.88 + spec2 * 0.55 + baseLip * 0.55, 0.025, 0.94) * uOpacityScale;
+        vec3 col = mix(uEdgeTint, uRimColor, clamp(rim * 0.85 + 0.40, 0.0, 1.0));
+        col += vec3(1.0) * (spec1 * 1.9 + spec2 * 1.2 + baseLip + domeCrest);
+        float alpha = clamp(0.022 + rim * 0.76 + spec1 * 0.88 + spec2 * 0.55 + baseLip * 0.58, 0.022, 0.94) * uOpacityScale;
         gl_FragColor = vec4(col, alpha);
       }
     `,
@@ -200,6 +223,8 @@ export function createCathedralMaterials(textures) {
     shroudMat,
     doorWoodMat,
     lancetGlassMat,
+    lancetGoboMat,
+    carpetMat,
     roseGlassMat,
     clocheGlassMat,
     dustMat,

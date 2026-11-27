@@ -18,7 +18,7 @@ function createLancetGlassGeo(w, h) {
   sh.quadraticCurveTo(hw * 0.72, h - w * 0.25, hw, springY);
   sh.lineTo(hw, 0);
   sh.closePath();
-  const geo = new THREE.ShapeGeometry(sh, 12);
+  const geo = new THREE.ShapeGeometry(sh, 14);
   const pos = geo.attributes.position;
   const uv = geo.attributes.uv;
   for (let i = 0; i < pos.count; i++) {
@@ -48,21 +48,45 @@ function createPointedWindowBayGeo(bayW, bayH, depth, winW, winH, winBottomY) {
   hole.closePath();
   wall.holes.push(hole);
 
-  const geo = new THREE.ExtrudeGeometry(wall, { depth, bevelEnabled: false, curveSegments: 12 });
+  const geo = new THREE.ExtrudeGeometry(wall, { depth, bevelEnabled: false, curveSegments: 14 });
   geo.translate(0, 0, -depth * 0.5);
-  applyWorldPlanarUVs(geo, 0.32, 0.32);
+  applyWorldPlanarUVs(geo, 0.18, 0.18);
   return geo;
 }
 
-/**
- * Curved Gothic half-arch flyer strut from outer buttress up to upper clerestory pier.
- */
-function buildCurvedFlyer(side, xOuter, yOuter, xInner, yInner, z, segments = 12) {
+function createApseWithLancetHolesGeo(halfW, eaveY, apexY, depth, windows) {
+  const wall = new THREE.Shape();
+  wall.moveTo(-halfW, 0);
+  wall.lineTo(halfW, 0);
+  wall.lineTo(halfW, eaveY);
+  wall.lineTo(0, apexY);
+  wall.lineTo(-halfW, eaveY);
+  wall.closePath();
+
+  for (const [wx, winW, winH, baseY] of windows) {
+    const hw = winW * 0.5;
+    const springY = baseY + winH - winW * 0.85;
+    const hole = new THREE.Path();
+    hole.moveTo(wx - hw, baseY);
+    hole.lineTo(wx - hw, springY);
+    hole.quadraticCurveTo(wx - hw * 0.72, baseY + winH - winW * 0.25, wx, baseY + winH);
+    hole.quadraticCurveTo(wx + hw * 0.72, baseY + winH - winW * 0.25, wx + hw, springY);
+    hole.lineTo(wx + hw, baseY);
+    hole.closePath();
+    wall.holes.push(hole);
+  }
+
+  const geo = new THREE.ExtrudeGeometry(wall, { depth, bevelEnabled: false, curveSegments: 14 });
+  applyWorldPlanarUVs(geo, 0.18, 0.18);
+  return geo;
+}
+
+function buildCurvedFlyer(side, xOuter, yOuter, xInner, yInner, z, segments = 14) {
   const pts = [];
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
     const x = THREE.MathUtils.lerp(xOuter, xInner, t);
-    const y = THREE.MathUtils.lerp(yOuter, yInner, Math.pow(t, 0.68)) + Math.sin(t * Math.PI) * 0.42;
+    const y = THREE.MathUtils.lerp(yOuter, yInner, Math.pow(t, 0.68)) + Math.sin(t * Math.PI) * 0.45;
     pts.push(new THREE.Vector3(x * side, y, z));
   }
   const curve = new THREE.CatmullRomCurve3(pts);
@@ -71,11 +95,18 @@ function buildCurvedFlyer(side, xOuter, yOuter, xInner, yInner, z, segments = 12
   return geo;
 }
 
+/**
+ * Independent Component: Wide Minimalist Gothic Sanctuary Shell with Split Left/Right Cutaway Piers,
+ * Smooth Pointed Rib Vaults, Real Stone Window Tracery, Gable Seam Sealing & Cerulean Light Pools.
+ */
 export function createGothicShellComponent(mats) {
   const group = new THREE.Group();
   group.name = 'gothicShell';
 
-  const piersGroup = new THREE.Group();
+  const leftPierBasesGroup = new THREE.Group();
+  const rightPierBasesGroup = new THREE.Group();
+  const leftPiersGroup = new THREE.Group();
+  const rightPiersGroup = new THREE.Group();
   const leftButtressGroup = new THREE.Group();
   const rightButtressGroup = new THREE.Group();
   const vaultsGroup = new THREE.Group();
@@ -85,9 +116,13 @@ export function createGothicShellComponent(mats) {
   const apseGroup = new THREE.Group();
   const leftSideWallGroup = new THREE.Group();
   const rightSideWallGroup = new THREE.Group();
+  const gobosGroup = new THREE.Group();
 
   group.add(
-    piersGroup,
+    leftPierBasesGroup,
+    rightPierBasesGroup,
+    leftPiersGroup,
+    rightPiersGroup,
     leftButtressGroup,
     rightButtressGroup,
     vaultsGroup,
@@ -96,63 +131,99 @@ export function createGothicShellComponent(mats) {
     roofRidgeGroup,
     apseGroup,
     leftSideWallGroup,
-    rightSideWallGroup
+    rightSideWallGroup,
+    gobosGroup
   );
 
-  const bayZs = [12.0, 6.8, 1.6, -3.6, -8.8, -14.0];
-  const PIER_X = 6.2;
+  const bayZs = [12.0, 7.2, 2.4, -2.4, -7.2, -12.0];
+  const PIER_X = 6.8;
+  const WALL_X = 7.8;
+  const VAULT_SPRING_Y = 8.2;
+  const VAULT_APEX_Y = 13.8;
+  const WALL_TOP_Y = 8.9;
+  const ROOF_APEX_Y = 16.2;
 
-  // 1. Clustered Nave Piers with Molded Bases & Capitals
-  const pierWhiteGeos = [];
-  const pierDarkGeos = [];
-  const pierTrimGeos = [];
-  for (const bz of bayZs) {
-    for (const side of [-1, 1]) {
+  // 1. Split Clustered Nave Piers (both column shafts AND bases fade on camera cutaway side -> ZERO orphan floor stumps!)
+  function buildPierSide(side, piersOutGroup, basesOutGroup) {
+    const bGroup = new THREE.Group();
+    const pGroup = new THREE.Group();
+    const bDarkMat = mats.obsidianMat.clone();
+    bDarkMat.transparent = true;
+    const bWhiteMat = mats.whiteMarbleMat.clone();
+    bWhiteMat.transparent = true;
+    const wMat = mats.whiteMarbleMat.clone();
+    wMat.transparent = true;
+    const tMat = mats.silverTrimMat.clone();
+    tMat.transparent = true;
+
+    const bdGeos = [];
+    const bwGeos = [];
+    const wGeos = [];
+    const tGeos = [];
+
+    for (const bz of bayZs) {
       const px = side * PIER_X;
+
       const plinth = new THREE.BoxGeometry(1.06, 0.44, 1.06);
       xform(plinth, [px, 0.22, bz]);
-      applyWorldPlanarUVs(plinth, 0.5, 0.5);
-      pierDarkGeos.push(plinth);
+      applyWorldPlanarUVs(plinth, 0.45, 0.45);
+      bdGeos.push(plinth);
 
-      const baseMolding = new THREE.CylinderGeometry(0.46, 0.52, 0.18, 12);
+      const baseMolding = new THREE.CylinderGeometry(0.46, 0.52, 0.18, 14);
       xform(baseMolding, [px, 0.52, bz]);
-      pierWhiteGeos.push(baseMolding);
+      bwGeos.push(baseMolding);
 
-      const core = new THREE.BoxGeometry(0.62, 6.45, 0.62);
-      xform(core, [px, 3.82, bz]);
-      applyWorldPlanarUVs(core, 0.4, 0.4);
-      pierWhiteGeos.push(core);
+      const core = new THREE.BoxGeometry(0.60, 7.25, 0.60);
+      xform(core, [px, 4.22, bz]);
+      applyWorldPlanarUVs(core, 0.36, 0.36);
+      wGeos.push(core);
 
-      for (const [ox, oz] of [[0.32, 0], [-0.32, 0], [0, 0.32], [0, -0.32]]) {
-        const shaft = new THREE.CylinderGeometry(0.11, 0.12, 6.45, 10);
-        xform(shaft, [px + ox, 3.82, bz + oz]);
-        pierWhiteGeos.push(shaft);
+      for (const [ox, oz] of [[0.31, 0], [-0.31, 0], [0, 0.31], [0, -0.31]]) {
+        const shaft = new THREE.CylinderGeometry(0.11, 0.12, 7.25, 10);
+        xform(shaft, [px + ox, 4.22, bz + oz]);
+        wGeos.push(shaft);
       }
 
-      // Molded Gothic bell capital + abacus
-      const capBell = new THREE.CylinderGeometry(0.54, 0.36, 0.28, 12);
-      xform(capBell, [px, 7.12, bz]);
-      pierWhiteGeos.push(capBell);
-
       const capRing = new THREE.TorusGeometry(0.40, 0.045, 8, 16);
-      xform(capRing, [px, 6.96, bz], [Math.PI / 2, 0, 0]);
-      pierTrimGeos.push(capRing);
+      xform(capRing, [px, 7.84, bz], [Math.PI / 2, 0, 0]);
+      tGeos.push(capRing);
 
-      const abacus = new THREE.BoxGeometry(1.12, 0.16, 1.12);
-      xform(abacus, [px, 7.32, bz]);
-      applyWorldPlanarUVs(abacus, 0.5, 0.5);
-      pierWhiteGeos.push(abacus);
+      const capBell = new THREE.CylinderGeometry(0.54, 0.36, 0.28, 14);
+      xform(capBell, [px, 8.0, bz]);
+      wGeos.push(capBell);
+
+      const abacus = new THREE.BoxGeometry(1.14, 0.16, 1.14);
+      xform(abacus, [px, 8.20, bz]);
+      applyWorldPlanarUVs(abacus, 0.45, 0.45);
+      wGeos.push(abacus);
     }
+
+    const bdMesh = new THREE.Mesh(mergeClean(bdGeos), bDarkMat);
+    bdMesh.castShadow = true;
+    bdMesh.receiveShadow = true;
+    const bwMesh = new THREE.Mesh(mergeClean(bwGeos), bWhiteMat);
+    bwMesh.receiveShadow = true;
+    bGroup.add(bdMesh, bwMesh);
+    bGroup.userData.mats = [bDarkMat, bWhiteMat];
+    basesOutGroup.add(bGroup);
+
+    const wMesh = new THREE.Mesh(mergeClean(wGeos), wMat);
+    wMesh.castShadow = true;
+    wMesh.receiveShadow = true;
+    const tMesh = new THREE.Mesh(mergeClean(tGeos), tMat);
+    pGroup.add(wMesh, tMesh);
+    pGroup.userData.mats = [wMat, tMat];
+    piersOutGroup.add(pGroup);
+
+    return { bGroup, pGroup };
   }
 
-  const pierWhiteMesh = new THREE.Mesh(mergeClean(pierWhiteGeos), mats.whiteMarbleMat);
-  pierWhiteMesh.castShadow = true;
-  pierWhiteMesh.receiveShadow = true;
-  const pierDarkMesh = new THREE.Mesh(mergeClean(pierDarkGeos), mats.obsidianMat);
-  pierDarkMesh.castShadow = true;
-  pierDarkMesh.receiveShadow = true;
-  const pierTrimMesh = new THREE.Mesh(mergeClean(pierTrimGeos), mats.silverTrimMat);
-  piersGroup.add(pierWhiteMesh, pierDarkMesh, pierTrimMesh);
+  const leftSide = buildPierSide(-1, leftPiersGroup, leftPierBasesGroup);
+  const rightSide = buildPierSide(1, rightPiersGroup, rightPierBasesGroup);
+  const leftPiers = leftSide.pGroup;
+  const rightPiers = rightSide.pGroup;
+  const leftBases = leftSide.bGroup;
+  const rightBases = rightSide.bGroup;
 
   // 2. Stepped Exterior Flying Buttresses with Curved Arched Flyers
   function buildSideButtresses(side) {
@@ -164,35 +235,33 @@ export function createGothicShellComponent(mats) {
 
     const wGeos = [];
     const nGeos = [];
-    const bx = side * 8.6;
+    const bx = side * 9.8;
     for (const bz of bayZs) {
-      // Stepped lower buttress pier
-      const baseFoot = new THREE.BoxGeometry(1.26, 2.2, 1.26);
-      xform(baseFoot, [bx, 1.1, bz]);
-      applyWorldPlanarUVs(baseFoot, 0.38, 0.38);
+      const baseFoot = new THREE.BoxGeometry(1.26, 2.3, 1.26);
+      xform(baseFoot, [bx, 1.15, bz]);
+      applyWorldPlanarUVs(baseFoot, 0.34, 0.34);
       wGeos.push(baseFoot);
 
-      const midShaft = new THREE.BoxGeometry(0.96, 3.6, 0.96);
-      xform(midShaft, [bx, 4.0, bz]);
-      applyWorldPlanarUVs(midShaft, 0.38, 0.38);
+      const midShaft = new THREE.BoxGeometry(0.96, 4.1, 0.96);
+      xform(midShaft, [bx, 4.35, bz]);
+      applyWorldPlanarUVs(midShaft, 0.34, 0.34);
       wGeos.push(midShaft);
 
       const collar = new THREE.BoxGeometry(1.12, 0.24, 1.12);
-      xform(collar, [bx, 5.88, bz]);
+      xform(collar, [bx, 6.50, bz]);
       nGeos.push(collar);
 
-      const pinnacleBody = new THREE.BoxGeometry(0.58, 1.65, 0.58);
-      xform(pinnacleBody, [bx, 6.8, bz]);
+      const pinnacleBody = new THREE.BoxGeometry(0.58, 1.75, 0.58);
+      xform(pinnacleBody, [bx, 7.45, bz]);
       wGeos.push(pinnacleBody);
 
-      const spire = new THREE.ConeGeometry(0.40, 1.75, 8);
-      xform(spire, [bx, 8.50, bz]);
+      const spire = new THREE.ConeGeometry(0.40, 1.85, 8);
+      xform(spire, [bx, 9.25, bz]);
       nGeos.push(spire);
 
-      // Curved flying buttress arch + white clerestory receiving corbel locking directly into the eave cornice
-      wGeos.push(buildCurvedFlyer(side, 8.4, 5.2, 6.5, 7.65, bz, 12));
-      const corbel = new THREE.BoxGeometry(0.42, 0.94, 0.44);
-      xform(corbel, [side * 6.58, 7.66, bz]);
+      wGeos.push(buildCurvedFlyer(side, 9.6, 5.6, 7.8, 8.35, bz, 14));
+      const corbel = new THREE.BoxGeometry(0.42, 0.96, 0.44);
+      xform(corbel, [side * 7.88, 8.32, bz]);
       wGeos.push(corbel);
     }
     const wm = new THREE.Mesh(mergeClean(wGeos), whiteMat);
@@ -210,21 +279,21 @@ export function createGothicShellComponent(mats) {
   leftButtressGroup.add(leftButt);
   rightButtressGroup.add(rightButt);
 
-  // 3. Smooth Continuous Pointed Rib Vaults + Keystones
+  // 3. Smooth Continuous Pointed Rib Vaults (40 segments for silky curvature) + Enclosed Vault Webbing
   const ribGeos = [];
   const bossGeos = [];
-  const VAULT_APEX_Y = 12.1;
+  const webGeos = [];
 
   for (const bz of bayZs) {
     ribGeos.push(
       ...buildPointedArchRib({
         spanHalf: PIER_X,
-        springY: 7.35,
+        springY: VAULT_SPRING_Y,
         apexY: VAULT_APEX_Y,
         z: bz,
-        width: 0.26,
-        depth: 0.28,
-        segments: 28,
+        width: 0.28,
+        depth: 0.30,
+        segments: 40,
       })
     );
     const transBoss = new THREE.OctahedronGeometry(0.24, 0);
@@ -235,23 +304,43 @@ export function createGothicShellComponent(mats) {
     const z0 = bayZs[i];
     const z1 = bayZs[i + 1];
     const midZ = (z0 + z1) * 0.5;
-    ribGeos.push(...buildDiagonalVaultRib([-PIER_X, 7.35, z0], [PIER_X, 7.35, z1], 4.7, 0.14, 0.16, 24));
-    ribGeos.push(...buildDiagonalVaultRib([PIER_X, 7.35, z0], [-PIER_X, 7.35, z1], 4.7, 0.14, 0.16, 24));
+    ribGeos.push(...buildDiagonalVaultRib([-PIER_X, VAULT_SPRING_Y, z0], [PIER_X, VAULT_SPRING_Y, z1], 5.4, 0.15, 0.17, 32));
+    ribGeos.push(...buildDiagonalVaultRib([PIER_X, VAULT_SPRING_Y, z0], [-PIER_X, VAULT_SPRING_Y, z1], 5.4, 0.15, 0.17, 32));
     const bayBoss = new THREE.OctahedronGeometry(0.26, 0);
-    xform(bayBoss, [0, VAULT_APEX_Y - 0.05, midZ]);
+    xform(bayBoss, [0, VAULT_APEX_Y - 0.04, midZ]);
     bossGeos.push(bayBoss);
   }
-  const ridgeRib = new THREE.BoxGeometry(0.22, 0.22, 26.4);
-  xform(ridgeRib, [0, VAULT_APEX_Y, -1.0]);
-  applyWorldPlanarUVs(ridgeRib, 0.4, 0.4);
+  const ridgeRib = new THREE.BoxGeometry(0.24, 0.24, 27.6);
+  xform(ridgeRib, [0, VAULT_APEX_Y, -0.6]);
+  applyWorldPlanarUVs(ridgeRib, 0.36, 0.36);
   ribGeos.push(ridgeRib);
 
-  const ribMesh = new THREE.Mesh(mergeClean(ribGeos), mats.brightAlabasterMat);
-  ribMesh.receiveShadow = true;
-  const bossMesh = new THREE.Mesh(mergeClean(bossGeos), mats.silverTrimMat);
-  vaultsGroup.add(ribMesh, bossMesh);
+  // Enclosed vault ceiling web spans z = -15.2 .. +14.0 strictly behind West Facade (zero gable poke-through!)
+  for (const side of [-1, 1]) {
+    const dx = WALL_X;
+    const dy = ROOF_APEX_Y - WALL_TOP_Y;
+    const len = Math.hypot(dx, dy);
+    const ang = Math.atan2(dy, dx);
+    const web = new THREE.BoxGeometry(len, 0.16, 29.2);
+    xform(web, [side * dx * 0.5, (ROOF_APEX_Y + WALL_TOP_Y) * 0.5 - 0.55, -0.6], [0, 0, -side * ang]);
+    applyWorldPlanarUVs(web, 0.18, 0.18);
+    webGeos.push(web);
+  }
 
-  // 4. Articulated Pitched Gothic Roof Slopes with Carved Marble Bay Ribs, Eave Cornice & Ridge Finials
+  const ribMat = mats.brightAlabasterMat.clone();
+  ribMat.transparent = true;
+  const ribMesh = new THREE.Mesh(mergeClean(ribGeos), ribMat);
+  ribMesh.receiveShadow = true;
+  const bossMat = mats.silverTrimMat.clone();
+  bossMat.transparent = true;
+  const bossMesh = new THREE.Mesh(mergeClean(bossGeos), bossMat);
+  const webMat = mats.navyStoneMat.clone();
+  webMat.transparent = true;
+  const webMesh = new THREE.Mesh(mergeClean(webGeos), webMat);
+  webMesh.receiveShadow = true;
+  vaultsGroup.add(ribMesh, bossMesh, webMesh);
+
+  // 4. Articulated Pitched Gothic Roof Slopes with Sealed Front Gable Cap & Smooth Classical Ridge Rail
   const roofMatLeft = mats.navyStoneMat.clone();
   roofMatLeft.transparent = true;
   const roofMatRight = mats.navyStoneMat.clone();
@@ -263,33 +352,46 @@ export function createGothicShellComponent(mats) {
 
   function buildRoofSlope(side, mat, trimMat) {
     const rGroup = new THREE.Group();
-    // Strict Z span (-15.35 .. +13.90, length = 29.25) & X fit (6.62m) so roof eaves NEVER poke past West Towers (z>=13.9)!
-    const dx = 6.62;
-    const dy = 14.95 - 8.20;
+    const dx = 7.95;
+    const dy = ROOF_APEX_Y - WALL_TOP_Y;
     const slopeLen = Math.hypot(dx, dy) + 0.14;
     const pitch = Math.atan2(dy, dx);
-    const roofZCenter = -0.725;
-    const roofLen = 29.25;
+    const roofZCenter = -0.7;
+    const roofLen = 29.4;
 
+    const rGeos = [];
     const slopeGeo = new THREE.BoxGeometry(slopeLen, 0.34, roofLen);
-    xform(slopeGeo, [side * dx * 0.5, (14.95 + 8.20) * 0.5, roofZCenter], [0, 0, -side * pitch]);
-    applyWorldPlanarUVs(slopeGeo, 0.34, 0.34);
-    const mesh = new THREE.Mesh(slopeGeo, mat);
+    xform(slopeGeo, [side * dx * 0.5, (ROOF_APEX_Y + WALL_TOP_Y) * 0.5, roofZCenter], [0, 0, -side * pitch]);
+    applyWorldPlanarUVs(slopeGeo, 0.22, 0.22);
+    rGeos.push(slopeGeo);
+
+    // Narrow front gable roof cap (x <= 5.64 inside towers) sealing z = 14.0 .. 15.10 without tower poke-through or Z-fighting!
+    const capDx = 5.62;
+    const capLen = Math.hypot(capDx, capDx * (dy / dx));
+    const capSlope = new THREE.BoxGeometry(capLen, 0.34, 1.35);
+    xform(
+      capSlope,
+      [side * capDx * 0.5, ROOF_APEX_Y - capDx * (dy / dx) * 0.5, 14.52],
+      [0, 0, -side * pitch]
+    );
+    applyWorldPlanarUVs(capSlope, 0.22, 0.22);
+    rGeos.push(capSlope);
+
+    const mesh = new THREE.Mesh(mergeClean(rGeos), mat);
     mesh.castShadow = side < 0;
     mesh.receiveShadow = true;
 
-    // Articulated white marble eaves cornice (buttress corbels lock into it!) + transverse slate-bay ribs
     const trimGeos = [];
-    const eaveCornice = new THREE.BoxGeometry(0.46, 0.36, roofLen);
-    xform(eaveCornice, [side * 6.58, 8.24, roofZCenter]);
-    applyWorldPlanarUVs(eaveCornice, 0.4, 0.4);
+    const eaveCornice = new THREE.BoxGeometry(0.48, 0.36, roofLen);
+    xform(eaveCornice, [side * 7.88, WALL_TOP_Y + 0.04, roofZCenter]);
+    applyWorldPlanarUVs(eaveCornice, 0.38, 0.38);
     trimGeos.push(eaveCornice);
 
     for (const bz of bayZs) {
-      if (bz > 13.5) continue;
+      if (bz > 11.5) continue;
       const rib = new THREE.BoxGeometry(slopeLen, 0.14, 0.24);
-      xform(rib, [side * dx * 0.5, (14.95 + 8.20) * 0.5 + 0.18, bz], [0, 0, -side * pitch]);
-      applyWorldPlanarUVs(rib, 0.4, 0.4);
+      xform(rib, [side * dx * 0.5, (ROOF_APEX_Y + WALL_TOP_Y) * 0.5 + 0.18, bz], [0, 0, -side * pitch]);
+      applyWorldPlanarUVs(rib, 0.38, 0.38);
       trimGeos.push(rib);
     }
     const trimMesh = new THREE.Mesh(mergeClean(trimGeos), trimMat);
@@ -305,55 +407,54 @@ export function createGothicShellComponent(mats) {
   roofLeftGroup.add(roofSlopeLeft);
   roofRightGroup.add(roofSlopeRight);
 
+  // Smooth classical molded marble ridge coping (zero spiky triangle teeth)
   const ridgeGeos = [];
-  const ridgeCrest = new THREE.BoxGeometry(0.44, 0.42, 29.25);
-  xform(ridgeCrest, [0, 15.05, -0.725]);
+  const ridgeCrest = new THREE.BoxGeometry(0.48, 0.38, 30.6);
+  xform(ridgeCrest, [0, ROOF_APEX_Y + 0.10, -0.1]);
   ridgeGeos.push(ridgeCrest);
-  for (let z = 13.5; z >= -14.5; z -= 2.8) {
-    const finial = new THREE.ConeGeometry(0.18, 0.65, 4);
-    xform(finial, [0, 15.55, z], [0, Math.PI / 4, 0]);
-    ridgeGeos.push(finial);
-  }
+  const ridgeCap = new THREE.BoxGeometry(0.28, 0.22, 30.6);
+  xform(ridgeCap, [0, ROOF_APEX_Y + 0.36, -0.1]);
+  ridgeGeos.push(ridgeCap);
   const ridgeCrestMesh = new THREE.Mesh(mergeClean(ridgeGeos), mats.whiteMarbleMat);
   roofRidgeGroup.add(ridgeCrestMesh);
 
-  // 5. Sanctuary East Apse Wall + Pointed Lancet Trio (z = -15.4)
-  const apseStoneGeos = [];
-  const apseDarkGeos = [];
-
-  const apseShape = new THREE.Shape();
-  apseShape.moveTo(-6.7, 0);
-  apseShape.lineTo(6.7, 0);
-  apseShape.lineTo(6.7, 8.25);
-  apseShape.lineTo(0, 14.95);
-  apseShape.lineTo(-6.7, 8.25);
-  apseShape.closePath();
-
-  const apseGeo = new THREE.ExtrudeGeometry(apseShape, { depth: 0.68, bevelEnabled: false });
-  apseGeo.translate(0, 0, -15.75);
-  applyWorldPlanarUVs(apseGeo, 0.32, 0.32);
-  apseStoneGeos.push(apseGeo);
-
-  for (const [lx, h] of [[-2.45, 7.0], [0, 8.6], [2.45, 7.0]]) {
-    const winW = 1.24;
-    const baseY = 3.1;
-    const glassGeo = createLancetGlassGeo(winW, h);
-    const glassMesh = new THREE.Mesh(glassGeo, mats.lancetGlassMat);
-    glassMesh.position.set(lx, baseY, -15.02);
-    apseGroup.add(glassMesh);
-
-    const sill = new THREE.BoxGeometry(winW + 0.32, 0.18, 0.24);
-    xform(sill, [lx, baseY - 0.08, -15.04]);
-    apseDarkGeos.push(sill);
-  }
-
-  const apseStoneMesh = new THREE.Mesh(mergeClean(apseStoneGeos), mats.navyStoneMat);
+  // 5. Sanctuary East Apse Wall + Real Extruded Pointed Lancet Trio & Marble Tracery (z = -15.4)
+  const apseWindows = [
+    [-3.1, 1.52, 7.6, 3.1],
+    [0.0, 1.72, 9.4, 3.1],
+    [3.1, 1.52, 7.6, 3.1],
+  ];
+  const apseWallGeo = createApseWithLancetHolesGeo(7.9, WALL_TOP_Y, ROOF_APEX_Y, 0.68, apseWindows);
+  apseWallGeo.translate(0, 0, -15.75);
+  const apseStoneMesh = new THREE.Mesh(apseWallGeo, mats.navyStoneMat);
   apseStoneMesh.castShadow = true;
   apseStoneMesh.receiveShadow = true;
-  const apseDarkMesh = new THREE.Mesh(mergeClean(apseDarkGeos), mats.obsidianMat);
-  apseGroup.add(apseStoneMesh, apseDarkMesh);
 
-  // 6. Solid Masonry Clerestory Side Walls + West-Tower Connector Bay (Seals Exterior Gap!)
+  const apseTrimGeos = [];
+  const apseDarkGeos = [];
+  for (const [lx, winW, winH, baseY] of apseWindows) {
+    const glassGeo = createLancetGlassGeo(winW, winH);
+    const glassMesh = new THREE.Mesh(glassGeo, mats.lancetGlassMat);
+    glassMesh.position.set(lx, baseY, -15.42);
+    apseGroup.add(glassMesh);
+
+    const mullion = new THREE.BoxGeometry(0.08, winH - winW * 0.65, 0.16);
+    xform(mullion, [lx, baseY + (winH - winW * 0.65) * 0.5, -15.38]);
+    apseTrimGeos.push(mullion);
+
+    const oculus = new THREE.TorusGeometry(winW * 0.24, 0.045, 8, 20);
+    xform(oculus, [lx, baseY + winH - winW * 0.48, -15.36]);
+    apseTrimGeos.push(oculus);
+
+    const sill = new THREE.BoxGeometry(winW + 0.36, 0.18, 0.28);
+    xform(sill, [lx, baseY - 0.08, -15.35]);
+    apseDarkGeos.push(sill);
+  }
+  const apseTrimMesh = new THREE.Mesh(mergeClean(apseTrimGeos), mats.whiteMarbleMat);
+  const apseDarkMesh = new THREE.Mesh(mergeClean(apseDarkGeos), mats.obsidianMat);
+  apseGroup.add(apseStoneMesh, apseTrimMesh, apseDarkMesh);
+
+  // 6. Solid Masonry Clerestory Side Walls + Real Stone Window Tracery
   function buildSideWall(side) {
     const sGroup = new THREE.Group();
     const stoneMat = mats.navyStoneMat.clone();
@@ -363,20 +464,18 @@ export function createGothicShellComponent(mats) {
     const trimMat = mats.whiteMarbleMat.clone();
     trimMat.transparent = true;
 
-    const wallX = side * 6.52;
+    const wallX = side * WALL_X;
     const wallGeos = [];
     const trimGeos = [];
 
-    // Connector masonry sealing gap between West Facade (z=15.0) and first nave bay (z=12.0)
-    const frontConn = new THREE.BoxGeometry(0.46, 8.25, 3.1);
-    xform(frontConn, [wallX, 4.125, 13.5]);
-    applyWorldPlanarUVs(frontConn, 0.32, 0.32);
+    const frontConn = new THREE.BoxGeometry(0.46, WALL_TOP_Y, 3.3);
+    xform(frontConn, [wallX, WALL_TOP_Y * 0.5, 13.6]);
+    applyWorldPlanarUVs(frontConn, 0.18, 0.18);
     wallGeos.push(frontConn);
 
-    // Connector masonry sealing rear bay (z=-14.0) to Apse wall (z=-15.4)
-    const rearConn = new THREE.BoxGeometry(0.46, 8.25, 1.6);
-    xform(rearConn, [wallX, 4.125, -14.7]);
-    applyWorldPlanarUVs(rearConn, 0.32, 0.32);
+    const rearConn = new THREE.BoxGeometry(0.46, WALL_TOP_Y, 3.5);
+    xform(rearConn, [wallX, WALL_TOP_Y * 0.5, -13.7]);
+    applyWorldPlanarUVs(rearConn, 0.18, 0.18);
     wallGeos.push(rearConn);
 
     for (let i = 0; i < bayZs.length - 1; i++) {
@@ -384,19 +483,29 @@ export function createGothicShellComponent(mats) {
       const z1 = bayZs[i + 1];
       const bayW = Math.abs(z0 - z1);
       const midZ = (z0 + z1) * 0.5;
+      const winW = 2.15;
+      const winH = 5.95;
+      const winBottomY = 1.65;
 
-      const bayWall = createPointedWindowBayGeo(bayW + 0.06, 8.25, 0.44, 2.05, 5.45, 1.55);
+      const bayWall = createPointedWindowBayGeo(bayW + 0.06, WALL_TOP_Y, 0.44, winW, winH, winBottomY);
       xform(bayWall, [wallX, 0, midZ], [0, Math.PI / 2, 0]);
       wallGeos.push(bayWall);
 
-      // Flush dark navy stone sill (tucked cleanly into wall so zero stark white tab crosses glass cloches!)
-      const sill = new THREE.BoxGeometry(0.48, 0.14, 2.12);
-      xform(sill, [wallX, 1.50, midZ]);
+      const sill = new THREE.BoxGeometry(0.50, 0.16, winW + 0.18);
+      xform(sill, [wallX, winBottomY - 0.07, midZ]);
       wallGeos.push(sill);
 
-      const glassGeo = createLancetGlassGeo(2.02, 5.42);
+      const mullion = new THREE.BoxGeometry(0.16, winH - winW * 0.65, 0.09);
+      xform(mullion, [wallX, winBottomY + (winH - winW * 0.65) * 0.5, midZ]);
+      trimGeos.push(mullion);
+
+      const oculus = new THREE.TorusGeometry(winW * 0.22, 0.045, 8, 20);
+      xform(oculus, [wallX, winBottomY + winH - winW * 0.48, midZ], [0, Math.PI / 2, 0]);
+      trimGeos.push(oculus);
+
+      const glassGeo = createLancetGlassGeo(winW - 0.02, winH - 0.02);
       const glass = new THREE.Mesh(glassGeo, glassMat);
-      glass.position.set(wallX, 1.55, midZ);
+      glass.position.set(wallX, winBottomY, midZ);
       glass.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
       sGroup.add(glass);
     }
@@ -404,11 +513,8 @@ export function createGothicShellComponent(mats) {
     const wallMesh = new THREE.Mesh(mergeClean(wallGeos), stoneMat);
     wallMesh.castShadow = true;
     wallMesh.receiveShadow = true;
-    if (trimGeos.length) {
-      const trimMesh = new THREE.Mesh(mergeClean(trimGeos), trimMat);
-      sGroup.add(trimMesh);
-    }
-    sGroup.add(wallMesh);
+    const trimMesh = new THREE.Mesh(mergeClean(trimGeos), trimMat);
+    sGroup.add(wallMesh, trimMesh);
 
     sGroup.userData.mats = [stoneMat, glassMat, trimMat];
     return sGroup;
@@ -419,40 +525,55 @@ export function createGothicShellComponent(mats) {
   leftSideWallGroup.add(leftWall);
   rightSideWallGroup.add(rightWall);
 
+  // 7. Cerulean Stained-Glass Floor Light Projections
+  const goboGeo = new THREE.PlaneGeometry(3.8, 5.2);
+  for (let i = 0; i < bayZs.length - 1; i++) {
+    const midZ = (bayZs[i] + bayZs[i + 1]) * 0.5;
+    const pool = new THREE.Mesh(goboGeo, mats.lancetGoboMat);
+    pool.rotation.set(-Math.PI / 2, 0, 0.22);
+    pool.position.set(2.8, 0.021, midZ - 0.4);
+    gobosGroup.add(pool);
+  }
+
   let builtVaultsVisible = true;
   let builtRoofVisible = true;
 
   function setBuildProgress(p) {
-    const pPiers = smooth01(0.04, 0.34, p);
-    const pWalls = smooth01(0.08, 0.42, p);
-    const pButtress = smooth01(0.12, 0.46, p);
-    const pVaults = smooth01(0.24, 0.62, p);
-    const pRoof = smooth01(0.32, 0.68, p);
+    const pPiers = smooth01(0.04, 0.36, p);
+    const pWalls = smooth01(0.08, 0.44, p);
+    const pButtress = smooth01(0.14, 0.48, p);
+    const pVaults = smooth01(0.24, 0.64, p);
+    const pRoof = smooth01(0.32, 0.70, p);
 
-    // Cohesive telescoping/ground-upward rise so no roofs, vaults, or buttresses float detached in empty air!
-    piersGroup.position.y = (1 - pPiers) * -1.4;
-    piersGroup.visible = pPiers > 0.02;
+    leftPierBasesGroup.position.y = (1 - pPiers) * -1.4;
+    leftPierBasesGroup.visible = pPiers > 0.02;
+    rightPierBasesGroup.position.y = (1 - pPiers) * -1.4;
+    rightPierBasesGroup.visible = pPiers > 0.02;
+    leftPiersGroup.position.y = (1 - pPiers) * -1.8;
+    leftPiersGroup.visible = pPiers > 0.02;
+    rightPiersGroup.position.y = (1 - pPiers) * -1.8;
+    rightPiersGroup.visible = pPiers > 0.02;
 
-    leftButtressGroup.position.y = (1 - pButtress) * -1.4;
+    leftButtressGroup.position.y = (1 - pButtress) * -1.8;
     leftButtressGroup.visible = pButtress > 0.02;
-    rightButtressGroup.position.y = (1 - pButtress) * -1.4;
+    rightButtressGroup.position.y = (1 - pButtress) * -1.8;
     rightButtressGroup.visible = pButtress > 0.02;
 
-    apseGroup.position.y = (1 - pWalls) * -1.4;
+    apseGroup.position.y = (1 - pWalls) * -1.8;
     apseGroup.visible = pWalls > 0.02;
-    leftSideWallGroup.position.y = (1 - pWalls) * -1.4;
+    leftSideWallGroup.position.y = (1 - pWalls) * -1.8;
     leftSideWallGroup.visible = pWalls > 0.02;
-    rightSideWallGroup.position.y = (1 - pWalls) * -1.4;
+    rightSideWallGroup.position.y = (1 - pWalls) * -1.8;
     rightSideWallGroup.visible = pWalls > 0.02;
 
     const vaultSY = THREE.MathUtils.lerp(0.10, 1.0, pVaults);
     vaultsGroup.scale.set(1, vaultSY, 1);
-    vaultsGroup.position.y = 7.35 * (1 - vaultSY) + (1 - pWalls) * -1.4;
+    vaultsGroup.position.y = VAULT_SPRING_Y * (1 - vaultSY) + (1 - pWalls) * -1.8;
     builtVaultsVisible = pVaults > 0.04;
     vaultsGroup.visible = builtVaultsVisible;
 
     const roofSY = THREE.MathUtils.lerp(0.08, 1.0, pRoof);
-    const roofY = 8.20 * (1 - roofSY) + (1 - pWalls) * -1.4;
+    const roofY = WALL_TOP_Y * (1 - roofSY) + (1 - pWalls) * -1.8;
     roofLeftGroup.scale.set(1, roofSY, 1);
     roofLeftGroup.position.y = roofY;
     roofLeftGroup.visible = pRoof > 0.04;
@@ -463,17 +584,38 @@ export function createGothicShellComponent(mats) {
     roofRidgeGroup.position.y = roofY;
     builtRoofVisible = pRoof > 0.04;
     roofRidgeGroup.visible = builtRoofVisible;
+
+    gobosGroup.visible = pWalls > 0.55;
   }
 
   function update(dt, elapsed, camera) {
     if (!camera) return;
     const camX = camera.position.x;
     const camZ = camera.position.z;
-    const inCutawayBand = camZ < 17.5 && camZ > -17.5 && camera.position.y < 16.5;
-    const cutLeft = inCutawayBand && camX < -7.6;
-    const cutRight = inCutawayBand && camX > 7.6;
+    const inCutawayBand = camZ < 24.5 && camZ > -18.5 && camera.position.y < 19.5;
+    const cutLeft = inCutawayBand && camX < -8.5;
+    const cutRight = inCutawayBand && camX > 8.5;
+    const isOverheadGallery = inCutawayBand && (cutLeft || cutRight);
 
     const alphaLerp = Math.min(1, dt * 10 || 1);
+
+    // Cutaway hides obstructing near-side walls, buttresses, roof, AND near-side column shafts so all 10 cloches are unobstructed!
+    leftBases.userData.mats.forEach((m) => {
+      m.opacity += ((cutLeft ? 0.0 : 1.0) - m.opacity) * alphaLerp;
+      m.depthWrite = m.opacity > 0.95;
+    });
+    rightBases.userData.mats.forEach((m) => {
+      m.opacity += ((cutRight ? 0.0 : 1.0) - m.opacity) * alphaLerp;
+      m.depthWrite = m.opacity > 0.95;
+    });
+    leftPiers.userData.mats.forEach((m) => {
+      m.opacity += ((cutLeft ? 0.0 : 1.0) - m.opacity) * alphaLerp;
+      m.depthWrite = m.opacity > 0.95;
+    });
+    rightPiers.userData.mats.forEach((m) => {
+      m.opacity += ((cutRight ? 0.0 : 1.0) - m.opacity) * alphaLerp;
+      m.depthWrite = m.opacity > 0.95;
+    });
 
     leftWall.userData.mats.forEach((m) => {
       m.opacity += ((cutLeft ? 0.0 : 1.0) - m.opacity) * alphaLerp;
@@ -484,7 +626,7 @@ export function createGothicShellComponent(mats) {
       m.depthWrite = m.opacity > 0.95;
     });
     roofSlopeLeft.userData.mats.forEach((m) => {
-      m.opacity += ((cutLeft ? 0.0 : 1.0) - m.opacity) * alphaLerp;
+      m.opacity += ((isOverheadGallery ? 0.0 : 1.0) - m.opacity) * alphaLerp;
       m.depthWrite = m.opacity > 0.95;
     });
 
@@ -497,9 +639,25 @@ export function createGothicShellComponent(mats) {
       m.depthWrite = m.opacity > 0.95;
     });
     roofSlopeRight.userData.mats.forEach((m) => {
-      m.opacity += ((cutRight ? 0.0 : 1.0) - m.opacity) * alphaLerp;
+      m.opacity += ((isOverheadGallery ? 0.0 : 1.0) - m.opacity) * alphaLerp;
       m.depthWrite = m.opacity > 0.95;
     });
+
+    // In 2.5D gallery view, keep far-side columns & clear open vista unobstructed (fade solid ceiling web + thick foreground ribs)
+    const vaultAlpha = isOverheadGallery ? 0.0 : 1.0;
+    webMat.opacity += (vaultAlpha - webMat.opacity) * alphaLerp;
+    webMat.depthWrite = webMat.opacity > 0.95;
+    webMesh.visible = webMat.opacity > 0.08;
+
+    ribMat.opacity += (vaultAlpha - ribMat.opacity) * alphaLerp;
+    ribMat.depthWrite = ribMat.opacity > 0.95;
+    bossMat.opacity += (vaultAlpha - bossMat.opacity) * alphaLerp;
+    bossMat.depthWrite = bossMat.opacity > 0.95;
+
+    leftBases.visible = leftBases.userData.mats[0].opacity > 0.08;
+    rightBases.visible = rightBases.userData.mats[0].opacity > 0.08;
+    leftPiers.visible = leftPiers.userData.mats[0].opacity > 0.08;
+    rightPiers.visible = rightPiers.userData.mats[0].opacity > 0.08;
 
     leftWall.visible = leftWall.userData.mats[0].opacity > 0.08;
     leftButt.visible = leftButt.userData.mats[0].opacity > 0.08;
@@ -509,10 +667,8 @@ export function createGothicShellComponent(mats) {
     rightButt.visible = rightButt.userData.mats[0].opacity > 0.08;
     roofRightGroup.visible = roofMatRight.opacity > 0.08;
 
-    // During elevated 2.5D cutaway, keep pointed Gothic vault arches & keystones visible overhead!
-    // Only hide the camera-facing roof slope so the sanctuary ceiling architecture stays unmistakably Gothic.
-    vaultsGroup.visible = builtVaultsVisible;
-    roofRidgeGroup.visible = builtRoofVisible;
+    vaultsGroup.visible = builtVaultsVisible && ribMat.opacity > 0.08;
+    roofRidgeGroup.visible = builtRoofVisible && !isOverheadGallery;
   }
 
   function dispose() {}

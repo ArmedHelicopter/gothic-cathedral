@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CENTERPIECE } from './data.js';
+import { CENTERPIECE, PROJECTS } from './data.js';
 import { createCathedralTextures } from './textures.js';
 import { createCathedralMaterials } from './materials.js';
 import { createFoundationComponent } from './foundation.js';
@@ -41,12 +41,11 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.06;
+  renderer.toneMappingExposure = 1.04;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.2, 240);
+  const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.2, 260);
 
-  // Build independent modular procedural components (zero external assets)
   const textures = createCathedralTextures(renderer);
   const mats = createCathedralMaterials(textures);
 
@@ -78,22 +77,24 @@ function init() {
     postfx,
   };
 
+  const exhibitOrder = [CENTERPIECE.id, ...PROJECTS.map((p) => p.id)];
   let activeExhibitId = null;
   let hoveredExhibitId = null;
+  let scrollTourMode = false;
+  let lastWheelStep = 0;
 
   let ui = null;
   const cameraRig = createCameraController(camera, canvas, {
-    onIntroStep({ buildProgress, doorOpen, fogClarity }) {
-      foundation.setBuildProgress(buildProgress);
+    onIntroStep({ buildProgress, roadProgress, doorOpen, fogClarity, interiorBlend }) {
+      foundation.setBuildProgress(buildProgress, roadProgress);
       gothicShell.setBuildProgress(buildProgress);
       portalDoors.setBuildProgress(buildProgress);
       veiledPainting.setBuildProgress(buildProgress);
       pedestals.setBuildProgress(buildProgress);
       lighting.setBuildProgress(buildProgress);
       portalDoors.setDoorOpen(doorOpen);
-      // Clear fog smoothly from deep misty silhouette (0.068) to crisp atmospheric sanctuary (0.0145)
-      const fogDensity = THREE.MathUtils.lerp(0.068, lighting.BASE_FOG_DENSITY, fogClarity);
-      lighting.setFogDensity(fogDensity);
+      const fogDensity = THREE.MathUtils.lerp(0.013, lighting.BASE_FOG_DENSITY, fogClarity);
+      lighting.setFogDensity(fogDensity, interiorBlend);
     },
     onStageChange(stage) {
       ui?.setStage(stage);
@@ -112,15 +113,36 @@ function init() {
     }
     ui?.showExhibit(id);
     if (id === CENTERPIECE.id) {
-      cameraRig.focusPose(CENTERPIECE.camPos, CENTERPIECE.camTarget, false);
+      cameraRig.focusPose(CENTERPIECE.camPos, CENTERPIECE.camTarget, false, 40);
     } else {
       const pose = pedestals.getExhibitFocusPose(id);
-      if (pose) cameraRig.focusPose(pose.camPos, pose.camTarget, false);
+      if (pose) cameraRig.focusPose(pose.camPos, pose.camTarget, false, 40);
     }
   }
 
+  function stepExhibit(dir) {
+    const curIdx = activeExhibitId ? exhibitOrder.indexOf(activeExhibitId) : -1;
+    const nextIdx =
+      curIdx === -1
+        ? dir > 0
+          ? 1
+          : exhibitOrder.length - 1
+        : (curIdx + dir + exhibitOrder.length) % exhibitOrder.length;
+    selectExhibit(exhibitOrder[nextIdx]);
+  }
+
   ui = createUIController({
+    pinAnchors: {
+      ...pedestals.pinAnchors,
+      [CENTERPIECE.id]: veiledPainting.pinAnchor,
+    },
     onSelectExhibit: selectExhibit,
+    onStepExhibit: stepExhibit,
+    onResetGallery: () => {
+      activeExhibitId = null;
+      pedestals.setActiveExhibit(null, hoveredExhibitId);
+      cameraRig.resetGalleryView(false);
+    },
     onResetInterior: () => {
       activeExhibitId = null;
       pedestals.setActiveExhibit(null, hoveredExhibitId);
@@ -131,6 +153,10 @@ function init() {
       pedestals.setActiveExhibit(null, hoveredExhibitId);
       cameraRig.resetExteriorView(false);
     },
+    onToggleScrollMode: () => {
+      scrollTourMode = !scrollTourMode;
+      ui?.syncScrollMode(scrollTourMode);
+    },
     onReplayIntro: () => {
       activeExhibitId = null;
       pedestals.setActiveExhibit(null, null);
@@ -138,14 +164,22 @@ function init() {
     },
   });
 
-  // Wheel zoom
+  // Mouse wheel: smooth zoom OR step through exhibits when tour mode enabled
   window.addEventListener(
     'wheel',
     (e) => {
       const insideCard = e.target && e.target.closest && e.target.closest('#exhibit-card');
       if (insideCard) return;
       e.preventDefault();
-      cameraRig.zoomBy(e.deltaY);
+      if (scrollTourMode && cameraRig.getStage() === 'explore') {
+        const now = performance.now();
+        if (now - lastWheelStep > 280 && Math.abs(e.deltaY) > 6) {
+          lastWheelStep = now;
+          stepExhibit(e.deltaY > 0 ? 1 : -1);
+        }
+      } else {
+        cameraRig.zoomBy(e.deltaY);
+      }
     },
     { passive: false }
   );
@@ -179,7 +213,6 @@ function init() {
     }
   });
 
-  // Launch immediately into Genshin-style construction + door-opening intro (unless ?intro=0)
   const params = new URLSearchParams(window.location.search);
   if (params.get('intro') === '0') {
     cameraRig.enterExplore(true);
@@ -192,9 +225,14 @@ function init() {
     lighting.setSkyLinearOutput(true);
     postfx.render(scene, camera);
     lighting.setSkyLinearOutput(false);
+    ui?.updatePins(
+      camera,
+      window.innerWidth,
+      window.innerHeight,
+      cameraRig.getStage() === 'explore' && document.body.dataset.hideUi !== 'true'
+    );
   }
 
-  // Immediate frame-0 compile & render (zero loading screen!)
   lighting.bakeStaticShadows();
   renderer.compile(scene, camera);
   renderAll();
@@ -227,7 +265,6 @@ function init() {
     const rawDt = lastTime === null ? 0 : Math.max(0, (now - lastTime) / 1000);
     lastTime = now;
 
-    // Auto-adapt DPR on modest laptops if frame time exceeds 22ms
     if (rawDt > 0 && rawDt < 0.25) {
       perfFrames += 1;
       perfSum += rawDt;
@@ -254,6 +291,7 @@ function init() {
 
     cameraRig.update(dt);
     gothicShell.update(dt, elapsed, camera);
+    portalDoors.update(dt, elapsed, camera);
     veiledPainting.update(dt, elapsed);
     pedestals.update(dt, elapsed);
     lighting.update(dt, elapsed);
@@ -262,16 +300,12 @@ function init() {
   }
   requestAnimationFrame(animate);
 
-  // Deterministic inspection & automated screenshot hook
   window.__CATHEDRAL_DEBUG__ = {
-    setCamera(posArr, targetArr, { hideUi = true, fov = 42 } = {}) {
+    setCamera(posArr, targetArr, { hideUi = true, fov = 40 } = {}) {
       document.body.dataset.hideUi = hideUi ? 'true' : 'false';
-      if (camera.fov !== fov) {
-        camera.fov = fov;
-        camera.updateProjectionMatrix();
-      }
-      cameraRig.focusPose(posArr, targetArr, true);
+      cameraRig.focusPose(posArr, targetArr, true, fov);
       gothicShell.update(1, performance.now() * 0.001, camera);
+      portalDoors.update(1, performance.now() * 0.001, camera);
       veiledPainting.update(0, 0);
       pedestals.update(1, 0);
       lighting.bakeStaticShadows();
@@ -281,6 +315,7 @@ function init() {
       document.body.dataset.hideUi = hideUi ? 'true' : 'false';
       cameraRig.setIntroProgress(t01);
       gothicShell.update(1, performance.now() * 0.001, camera);
+      portalDoors.update(1, performance.now() * 0.001, camera);
       veiledPainting.update(0, 0);
       pedestals.update(1, 0);
       lighting.bakeStaticShadows();
@@ -291,6 +326,7 @@ function init() {
       return {
         stage: cameraRig.getStage(),
         position: camera.position.toArray().map((n) => +n.toFixed(3)),
+        fov: +camera.fov.toFixed(1),
         spherical: cameraRig.getSpherical(),
       };
     },

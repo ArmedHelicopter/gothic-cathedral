@@ -55,12 +55,19 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
       uniform sampler2D tInput;
       uniform vec2 uDir;
       varying vec2 vUv;
+      vec3 safeHDR(vec3 c) {
+        return vec3(
+          (c.r >= 0.0 && c.r < 32000.0) ? c.r : 0.0,
+          (c.g >= 0.0 && c.g < 32000.0) ? c.g : 0.0,
+          (c.b >= 0.0 && c.b < 32000.0) ? c.b : 0.0
+        );
+      }
       void main() {
-        vec3 sum = texture2D(tInput, vUv).rgb * 0.227027;
-        sum += texture2D(tInput, vUv + uDir * 1.3846).rgb * 0.316216;
-        sum += texture2D(tInput, vUv - uDir * 1.3846).rgb * 0.316216;
-        sum += texture2D(tInput, vUv + uDir * 3.2308).rgb * 0.070270;
-        sum += texture2D(tInput, vUv - uDir * 3.2308).rgb * 0.070270;
+        vec3 sum = safeHDR(texture2D(tInput, vUv).rgb) * 0.227027;
+        sum += safeHDR(texture2D(tInput, vUv + uDir * 1.3846).rgb) * 0.316216;
+        sum += safeHDR(texture2D(tInput, vUv - uDir * 1.3846).rgb) * 0.316216;
+        sum += safeHDR(texture2D(tInput, vUv + uDir * 3.2308).rgb) * 0.070270;
+        sum += safeHDR(texture2D(tInput, vUv - uDir * 3.2308).rgb) * 0.070270;
         gl_FragColor = vec4(sum, 1.0);
       }
     `,
@@ -72,11 +79,11 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
     uniforms: {
       tScene: { value: sceneRT.texture },
       tBlur: { value: blurB.texture },
-      uBloomThreshold: { value: 1.28 },
-      uBloomStrength: { value: 0.11 },
-      uBloomTint: { value: new THREE.Vector3(0.88, 0.94, 1.08) },
-      uVignetteTint: { value: new THREE.Vector3(0.02, 0.04, 0.11) },
-      uDofStrength: { value: 0.78 },
+      uBloomThreshold: { value: 1.38 },
+      uBloomStrength: { value: 0.09 },
+      uBloomTint: { value: new THREE.Vector3(0.80, 0.91, 1.12) },
+      uVignetteTint: { value: new THREE.Vector3(0.04, 0.08, 0.22) },
+      uDofStrength: { value: 0.42 },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -91,22 +98,29 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
       uniform vec3 uVignetteTint;
       uniform float uDofStrength;
       varying vec2 vUv;
+      vec3 safeHDR(vec3 c) {
+        return vec3(
+          (c.r >= 0.0 && c.r < 32000.0) ? c.r : 0.0,
+          (c.g >= 0.0 && c.g < 32000.0) ? c.g : 0.0,
+          (c.b >= 0.0 && c.b < 32000.0) ? c.b : 0.0
+        );
+      }
       void main() {
-        vec3 sharp = texture2D(tScene, vUv).rgb;
-        vec3 blurCol = texture2D(tBlur, vUv).rgb;
+        vec3 sharp = safeHDR(texture2D(tScene, vUv).rgb);
+        vec3 blurCol = safeHDR(texture2D(tBlur, vUv).rgb);
 
-        // Crisp 2.5D HD-2D tilt-shift focal band (center razor-sharp, upper & lower bands gently soft-focus)
-        float dy = max(0.0, 0.22 - vUv.y) * 1.45 + max(0.0, vUv.y - 0.78) * 1.45;
-        float coc = smoothstep(0.0, 0.24, dy);
+        // Crisp 2.5D focal band: preserves lower plaques & foreground pedestals razor-sharp while softening extreme edges
+        float dy = max(0.0, 0.07 - vUv.y) * 1.4 + max(0.0, vUv.y - 0.86) * 1.4;
+        float coc = smoothstep(0.0, 0.22, dy);
         vec3 col = mix(sharp, blurCol, coc * uDofStrength);
 
-        // Restrained celestial bloom (only true high-luminance highlights glow, zero fuzzy haloing)
-        vec3 hi = max(blurCol - vec3(uBloomThreshold), vec3(0.0));
+        // Serene cerulean-ice sanctuary highlight bloom (NaN-proof)
+        vec3 hi = clamp(blurCol - vec3(uBloomThreshold), vec3(0.0), vec3(12.0));
         col += hi * uBloomTint * uBloomStrength;
 
         float rDist = length((vUv - 0.5) * vec2(1.18, 1.0));
-        float vig = smoothstep(0.48, 0.99, rDist);
-        col = mix(col, mix(col * 0.52, uVignetteTint, 0.38), vig * 0.40);
+        float vig = smoothstep(0.50, 0.99, rDist);
+        col = mix(col, mix(col * 0.60, uVignetteTint, 0.32), vig * 0.34);
 
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>

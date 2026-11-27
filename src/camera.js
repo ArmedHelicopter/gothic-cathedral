@@ -1,21 +1,35 @@
 import * as THREE from 'three';
 import { smooth01 } from './geo.js';
 
-const HERO_EXPLORE_POS = new THREE.Vector3(0.0, 3.25, 13.4);
-const HERO_EXPLORE_TARGET = new THREE.Vector3(0.0, 2.75, -8.5);
-const EXTERIOR_DIORAMA_POS = new THREE.Vector3(31.0, 22.0, 37.5);
-const EXTERIOR_DIORAMA_TARGET = new THREE.Vector3(0.0, 6.4, 0.5);
+// Primary 2.5D Gallery Cutaway Overview framing ALL 10 project cloches, carpet, & central veiled painting cleanly!
+const GALLERY_OVERVIEW_POS = new THREE.Vector3(15.2, 13.2, 19.2);
+const GALLERY_OVERVIEW_TARGET = new THREE.Vector3(0.0, 2.05, -0.6);
+const GALLERY_FOV = 45;
+
+// Sacred Cerulean Axial Sanctuary Carpet View (comfortable clearance under top vault rib apex)
+const HERO_EXPLORE_POS = new THREE.Vector3(0.0, 2.85, 13.4);
+const HERO_EXPLORE_TARGET = new THREE.Vector3(0.0, 2.85, -11.5);
+const AXIAL_FOV = 44;
+
+// Wide Genshin-approach FOV during bridge paving walk so BOTH road slabs & full spires sit clearly inside!
+const INTRO_WALK_FOV = 56;
+
+// 3/4 Exterior Gothic Cathedral Diorama View
+const EXTERIOR_DIORAMA_POS = new THREE.Vector3(38.0, 22.0, 44.0);
+const EXTERIOR_DIORAMA_TARGET = new THREE.Vector3(0.0, 5.8, 6.0);
+const EXTERIOR_FOV = 40;
 
 export function createCameraController(camera, domElement, { onIntroStep, onStageChange }) {
   let stage = 'intro';
   let introElapsed = 0;
   let introFrozen = false;
-  const INTRO_DURATION = 5.6;
+  const INTRO_DURATION = 6.6;
 
-  const target = HERO_EXPLORE_TARGET.clone();
-  const desiredTarget = HERO_EXPLORE_TARGET.clone();
+  const target = GALLERY_OVERVIEW_TARGET.clone();
+  const desiredTarget = GALLERY_OVERVIEW_TARGET.clone();
   const spherical = new THREE.Spherical();
   const desiredSpherical = new THREE.Spherical();
+  let desiredFov = GALLERY_FOV;
 
   function syncSpherical(posVec, tgtVec) {
     const off = posVec.clone().sub(tgtVec);
@@ -25,41 +39,65 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
 
   let tweenActive = false;
   let tweenElapsed = 0;
-  const TWEEN_DURATION = 0.95;
+  const TWEEN_DURATION = 1.0;
   const tweenStartPos = new THREE.Vector3();
   const tweenEndPos = new THREE.Vector3();
   const tweenStartTgt = new THREE.Vector3();
   const tweenEndTgt = new THREE.Vector3();
+  let tweenStartFov = GALLERY_FOV;
+  let tweenEndFov = GALLERY_FOV;
 
-  const introPosCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(24.0, 17.5, 56.0),
-    new THREE.Vector3(16.0, 12.5, 42.0),
-    new THREE.Vector3(4.5, 5.2, 26.5),
-    new THREE.Vector3(0.0, 3.1, 19.6),
-    HERO_EXPLORE_POS.clone(),
+  // Strictly centered X = 0.0 straight Genshin-style axial walk: sees forward rising stone bridge AND full clear-sky cathedral spires!
+  const walkPosCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.0, 4.8, 62.0),
+    new THREE.Vector3(0.0, 4.3, 50.0),
+    new THREE.Vector3(0.0, 3.6, 30.0),
+    new THREE.Vector3(0.0, 2.85, 14.0),
   ]);
 
-  const introLookCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.0, 6.2, 4.0),
-    new THREE.Vector3(0.0, 6.0, 6.0),
-    new THREE.Vector3(0.0, 4.2, 12.0),
-    new THREE.Vector3(0.0, 3.2, 4.0),
-    HERO_EXPLORE_TARGET.clone(),
+  const walkLookCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.0, 7.6, 16.0),
+    new THREE.Vector3(0.0, 7.3, 13.0),
+    new THREE.Vector3(0.0, 3.8, 0.0),
+    new THREE.Vector3(0.0, 2.85, -10.5),
   ]);
 
   function applyIntroAt(t01) {
     const t = THREE.MathUtils.clamp(t01, 0, 1);
-    const pos = introPosCurve.getPoint(t);
-    const look = introLookCurve.getPoint(t);
 
-    camera.position.copy(pos);
-    camera.lookAt(look);
+    if (t <= 0.82) {
+      const wt = t / 0.82;
+      const pos = walkPosCurve.getPoint(wt);
+      const look = walkLookCurve.getPoint(wt);
+      camera.position.copy(pos);
+      camera.lookAt(look);
+      const wfov = THREE.MathUtils.lerp(INTRO_WALK_FOV, AXIAL_FOV, smooth01(0.45, 0.95, wt));
+      if (Math.abs(camera.fov - wfov) > 0.02) {
+        camera.fov = wfov;
+        camera.updateProjectionMatrix();
+      }
+    } else {
+      // Smooth reveal lift from the nave carpet up into the unobstructed 2.5D Gallery Overview
+      const gt = smooth01(0.82, 1.0, t);
+      const walkEndPos = walkPosCurve.getPoint(1);
+      const walkEndLook = walkLookCurve.getPoint(1);
+      camera.position.lerpVectors(walkEndPos, GALLERY_OVERVIEW_POS, gt);
+      const look = new THREE.Vector3().lerpVectors(walkEndLook, GALLERY_OVERVIEW_TARGET, gt);
+      camera.lookAt(look);
+      const nextFov = THREE.MathUtils.lerp(AXIAL_FOV, GALLERY_FOV, gt);
+      if (Math.abs(camera.fov - nextFov) > 0.02) {
+        camera.fov = nextFov;
+        camera.updateProjectionMatrix();
+      }
+    }
 
-    const buildProgress = smooth01(0.0, 0.68, t);
-    const doorOpen = smooth01(0.58, 0.86, t);
-    const fogClarity = smooth01(0.0, 0.74, t);
+    const buildProgress = smooth01(0.0, 0.50, t);
+    const roadProgress = smooth01(0.0, 0.54, t);
+    const doorOpen = smooth01(0.48, 0.74, t);
+    const fogClarity = smooth01(0.04, 0.78, t);
+    const interiorBlend = smooth01(0.68, 0.90, t);
 
-    onIntroStep?.({ t, buildProgress, doorOpen, fogClarity });
+    onIntroStep?.({ t, buildProgress, roadProgress, doorOpen, fogClarity, interiorBlend });
   }
 
   function startIntro() {
@@ -83,35 +121,57 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
   function enterExplore(snap = false) {
     stage = 'explore';
     introFrozen = false;
-    onIntroStep?.({ t: 1, buildProgress: 1, doorOpen: 1, fogClarity: 1 });
+    onIntroStep?.({
+      t: 1,
+      buildProgress: 1,
+      roadProgress: 1,
+      doorOpen: 1,
+      fogClarity: 1,
+      interiorBlend: 1,
+    });
     onStageChange?.('explore');
     if (snap) {
       tweenActive = false;
-      camera.position.copy(HERO_EXPLORE_POS);
-      target.copy(HERO_EXPLORE_TARGET);
-      desiredTarget.copy(HERO_EXPLORE_TARGET);
-      syncSpherical(HERO_EXPLORE_POS, HERO_EXPLORE_TARGET);
+      camera.position.copy(GALLERY_OVERVIEW_POS);
+      target.copy(GALLERY_OVERVIEW_TARGET);
+      desiredTarget.copy(GALLERY_OVERVIEW_TARGET);
+      syncSpherical(GALLERY_OVERVIEW_POS, GALLERY_OVERVIEW_TARGET);
+      camera.fov = GALLERY_FOV;
+      desiredFov = GALLERY_FOV;
+      camera.updateProjectionMatrix();
       camera.lookAt(target);
     } else {
-      focusPose(HERO_EXPLORE_POS.toArray(), HERO_EXPLORE_TARGET.toArray(), false);
+      focusPose(GALLERY_OVERVIEW_POS.toArray(), GALLERY_OVERVIEW_TARGET.toArray(), false, GALLERY_FOV);
     }
   }
 
-  function focusPose(posArr, tgtArr, snap = false) {
+  function focusPose(posArr, tgtArr, snap = false, fov = 40) {
     if (stage !== 'explore') {
       stage = 'explore';
       introFrozen = false;
-      onIntroStep?.({ t: 1, buildProgress: 1, doorOpen: 1, fogClarity: 1 });
+      onIntroStep?.({
+        t: 1,
+        buildProgress: 1,
+        roadProgress: 1,
+        doorOpen: 1,
+        fogClarity: 1,
+        interiorBlend: 1,
+      });
       onStageChange?.('explore');
     }
     const nextPos = new THREE.Vector3(...posArr);
     const nextTgt = new THREE.Vector3(...tgtArr);
+    desiredFov = fov;
     if (snap) {
       tweenActive = false;
       camera.position.copy(nextPos);
       target.copy(nextTgt);
       desiredTarget.copy(nextTgt);
       syncSpherical(nextPos, nextTgt);
+      if (Math.abs(camera.fov - fov) > 0.02) {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+      }
       camera.lookAt(target);
       return;
     }
@@ -119,16 +179,22 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
     tweenStartTgt.copy(target);
     tweenEndPos.copy(nextPos);
     tweenEndTgt.copy(nextTgt);
+    tweenStartFov = camera.fov;
+    tweenEndFov = fov;
     tweenElapsed = 0;
     tweenActive = true;
   }
 
+  function resetGalleryView(snap = false) {
+    focusPose(GALLERY_OVERVIEW_POS.toArray(), GALLERY_OVERVIEW_TARGET.toArray(), snap, GALLERY_FOV);
+  }
+
   function resetInteriorView(snap = false) {
-    focusPose(HERO_EXPLORE_POS.toArray(), HERO_EXPLORE_TARGET.toArray(), snap);
+    focusPose(HERO_EXPLORE_POS.toArray(), HERO_EXPLORE_TARGET.toArray(), snap, AXIAL_FOV);
   }
 
   function resetExteriorView(snap = false) {
-    focusPose(EXTERIOR_DIORAMA_POS.toArray(), EXTERIOR_DIORAMA_TARGET.toArray(), snap);
+    focusPose(EXTERIOR_DIORAMA_POS.toArray(), EXTERIOR_DIORAMA_TARGET.toArray(), snap, EXTERIOR_FOV);
   }
 
   const activePointers = new Map();
@@ -161,8 +227,8 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
       if (lastPinchDist !== null) {
         desiredSpherical.radius = THREE.MathUtils.clamp(
           desiredSpherical.radius + (lastPinchDist - dist) * 0.06,
-          3.2,
-          56.0
+          2.8,
+          62.0
         );
       }
       lastPinchDist = dist;
@@ -177,7 +243,7 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
 
     if (dragMode === 'orbit') {
       desiredSpherical.theta -= dx * 0.0062;
-      desiredSpherical.phi = THREE.MathUtils.clamp(desiredSpherical.phi - dy * 0.0052, 0.24, 1.52);
+      desiredSpherical.phi = THREE.MathUtils.clamp(desiredSpherical.phi - dy * 0.0052, 0.22, 1.52);
     } else if (dragMode === 'pan') {
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
       const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -186,9 +252,9 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
       const panScale = desiredSpherical.radius * 0.0014;
       desiredTarget.addScaledVector(right, -dx * panScale);
       desiredTarget.addScaledVector(fwd, dy * panScale);
-      desiredTarget.x = THREE.MathUtils.clamp(desiredTarget.x, -9.0, 9.0);
+      desiredTarget.x = THREE.MathUtils.clamp(desiredTarget.x, -10.0, 10.0);
       desiredTarget.z = THREE.MathUtils.clamp(desiredTarget.z, -16.0, 22.0);
-      desiredTarget.y = THREE.MathUtils.clamp(desiredTarget.y, 0.8, 7.5);
+      desiredTarget.y = THREE.MathUtils.clamp(desiredTarget.y, 0.8, 8.0);
     }
     tweenActive = false;
   }
@@ -203,7 +269,7 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
     if (stage === 'intro') {
       enterExplore(false);
     }
-    desiredSpherical.radius = THREE.MathUtils.clamp(desiredSpherical.radius + deltaY * 0.014, 3.2, 56.0);
+    desiredSpherical.radius = THREE.MathUtils.clamp(desiredSpherical.radius + deltaY * 0.014, 2.8, 62.0);
     tweenActive = false;
   }
 
@@ -225,10 +291,13 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
         applyIntroAt(rawT);
         if (rawT >= 1) {
           stage = 'explore';
-          camera.position.copy(HERO_EXPLORE_POS);
-          target.copy(HERO_EXPLORE_TARGET);
-          desiredTarget.copy(HERO_EXPLORE_TARGET);
-          syncSpherical(HERO_EXPLORE_POS, HERO_EXPLORE_TARGET);
+          camera.position.copy(GALLERY_OVERVIEW_POS);
+          target.copy(GALLERY_OVERVIEW_TARGET);
+          desiredTarget.copy(GALLERY_OVERVIEW_TARGET);
+          syncSpherical(GALLERY_OVERVIEW_POS, GALLERY_OVERVIEW_TARGET);
+          camera.fov = GALLERY_FOV;
+          desiredFov = GALLERY_FOV;
+          camera.updateProjectionMatrix();
           camera.lookAt(target);
           onStageChange?.('explore');
         }
@@ -244,6 +313,11 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
       target.lerpVectors(tweenStartTgt, tweenEndTgt, e);
       desiredTarget.copy(target);
       syncSpherical(camera.position, target);
+      const curFov = THREE.MathUtils.lerp(tweenStartFov, tweenEndFov, e);
+      if (Math.abs(camera.fov - curFov) > 0.02) {
+        camera.fov = curFov;
+        camera.updateProjectionMatrix();
+      }
       camera.lookAt(target);
       if (raw >= 1) tweenActive = false;
       return;
@@ -259,6 +333,10 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
     camera.position.copy(target).add(offset);
     if (camera.position.y < 0.72) {
       camera.position.y = 0.72;
+    }
+    if (Math.abs(camera.fov - desiredFov) > 0.04) {
+      camera.fov += (desiredFov - camera.fov) * damp;
+      camera.updateProjectionMatrix();
     }
     camera.lookAt(target);
   }
@@ -276,6 +354,7 @@ export function createCameraController(camera, domElement, { onIntroStep, onStag
     setIntroProgress,
     enterExplore,
     focusPose,
+    resetGalleryView,
     resetInteriorView,
     resetExteriorView,
     zoomBy,
