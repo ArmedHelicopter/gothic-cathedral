@@ -14292,65 +14292,113 @@ function createOrganComponent(mats) {
 }
 
 // src/lighting.js
+function smooth012(a, b, v) {
+  const t2 = Zn.clamp((v - a) / Math.max(1e-4, b - a), 0, 1);
+  return t2 * t2 * (3 - 2 * t2);
+}
 function createLightingComponent(scene, renderer, mats) {
   const group = new jl();
   group.name = "lighting";
-  scene.background = new Kr("#040917");
-  const BASE_FOG_DENSITY = 78e-4;
-  scene.fog = new nc("#061028", BASE_FOG_DENSITY);
-  let envRT = null;
-  let keyLight = null;
-  let hemiLight = null;
-  let sovereignSpot = null;
-  let sovereignWarmFill = null;
-  let sovereignConeMat = null;
-  let beamMat = null;
-  let navyDust = null;
-  let goldDust = null;
-  const vaultBounceLights = [];
-  const navyDustBase = [];
-  const goldDustBase = [];
-  const beamMeshes = [];
+  const BASE_FOG_DENSITY = 75e-4;
+  scene.background = new Kr("#0A1230");
+  scene.fog = new nc("#0B1430", BASE_FOG_DENSITY);
+  let keyLight;
+  let hemiLight;
+  let paintingSpot;
+  let paintingFill;
+  let paintingCone;
+  let beamMat;
+  let navyDust;
+  let goldDust;
+  let components = {};
+  let materializeProgress = 1;
+  const chandelierLights = [];
+  const state = {
+    ambient: 1,
+    lamps: [1, 1, 1, 1],
+    corona: 1,
+    pools: 1,
+    painting: 1
+  };
   function buildEnvironment() {
-    const pmremGen = new Na(renderer);
-    pmremGen.compileEquirectangularShader();
     const envScene = new rc();
     const envMat = new Xs({
       side: d,
+      depthWrite: false,
+      uniforms: {
+        uHorizon: { value: new Kr("#1A2A5A") },
+        uZenith: { value: new Kr("#0A1230") },
+        uWarm: { value: new Kr("#C9A961") }
+      },
       vertexShader: `
-        varying vec3 vDir;
-        void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        varying vec3 vDirection;
+        void main() {
+          vDirection = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
       `,
       fragmentShader: `
-        varying vec3 vDir;
+        varying vec3 vDirection;
+        uniform vec3 uHorizon;
+        uniform vec3 uZenith;
+        uniform vec3 uWarm;
         void main() {
-          vec3 d = normalize(vDir);
-          float h = clamp(d.y * 0.5 + 0.5, 0.0, 1.0);
-          vec3 col = mix(vec3(0.04, 0.09, 0.22), vec3(0.11, 0.24, 0.52), smoothstep(0.12, 0.65, h));
-          col = mix(col, vec3(0.22, 0.44, 0.82), smoothstep(0.65, 0.96, h));
-          vec3 eastWin = normalize(vec3(0.88, 0.36, 0.12));
-          float ew = max(0.0001, dot(d, eastWin));
-          col += vec3(0.45, 0.72, 1.0) * pow(ew, 10.0) * 1.15;
-          vec3 spotDir = normalize(vec3(0.0, 0.85, -0.52));
-          float sw = max(0.0001, dot(d, spotDir));
-          col += vec3(1.0, 0.90, 0.72) * pow(sw, 24.0) * 1.15;
-          gl_FragColor = vec4(col, 1.0);
+          float h = smoothstep(-0.15, 0.85, vDirection.y);
+          vec3 color = mix(uHorizon, uZenith, h);
+          float warm = pow(max(0.0001, dot(normalize(vDirection), normalize(vec3(-0.3, 0.25, -0.8)))), 18.0);
+          color += uWarm * warm * 0.12;
+          gl_FragColor = vec4(color, 1.0);
         }
       `
     });
-    const envSphere = new Bs(new id(16, 20, 14), envMat);
-    envScene.add(envSphere);
-    envRT = pmremGen.fromScene(envScene, 0.04);
-    envSphere.geometry.dispose();
-    envMat.dispose();
-    pmremGen.dispose();
+    envScene.add(new Bs(new id(50, 40, 24), envMat));
+    const pmrem = new Na(renderer);
+    const envRT = pmrem.fromScene(envScene, 0.06, 0.1, 100);
     scene.environment = envRT.texture;
     scene.environmentIntensity = 0.58;
+    envMat.dispose();
+    pmrem.dispose();
+  }
+  function makeDustSystem(count, color, size, opacity, seed, positionFn) {
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i += 1) {
+      const p2 = positionFn(i);
+      positions[i * 3] = p2[0];
+      positions[i * 3 + 1] = p2[1];
+      positions[i * 3 + 2] = p2[2];
+    }
+    const geo = new Es();
+    geo.setAttribute("position", new cs(positions, 3));
+    const mat = new Ch({
+      color,
+      size,
+      map: mats.bokehMap,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      blending: g,
+      sizeAttenuation: true
+    });
+    const points = new Dh(geo, mat);
+    points.userData.basePositions = positions.slice();
+    points.userData.seed = seed;
+    points.renderOrder = 3;
+    return points;
+  }
+  function addBeam(start, end, width) {
+    const direction = end.clone().sub(start);
+    const length = direction.length();
+    const geo = new ha(width, length);
+    const mesh = new Bs(geo, beamMat);
+    mesh.position.copy(start).add(end).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(new Ci(0, 1, 0), direction.normalize());
+    mesh.renderOrder = 3;
+    group.add(mesh);
   }
   function buildLightsAndRays() {
-    keyLight = new mp("#3578f6", 3.05);
-    keyLight.position.set(24, 13.6, 4.5);
-    keyLight.target.position.set(-4, 1.5, -2);
+    keyLight = new mp("#8FB6E8", 1.85);
+    keyLight.position.set(24, 18.5, 4.5);
+    keyLight.target.position.set(-4, 2.5, -2);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(2048, 2048);
     keyLight.shadow.camera.near = 2;
@@ -14362,257 +14410,230 @@ function createLightingComponent(scene, renderer, mats) {
     keyLight.shadow.bias = -45e-5;
     keyLight.shadow.normalBias = 0.036;
     keyLight.shadow.radius = 2.2;
+    keyLight.userData.baseIntensity = 1.85;
     group.add(keyLight, keyLight.target);
-    hemiLight = new ep("#2860c8", "#09142c", 0.82);
+    hemiLight = new ep("#536FA8", "#0B1430", 0.88);
+    hemiLight.userData.baseIntensity = 0.88;
     group.add(hemiLight);
-    for (const [lx, ly, lz, inten, dist] of [
-      [0, 17.5, 20, 22, 32],
-      [0, 17.8, 6, 18, 34],
-      [0, 17.8, -8, 18, 34],
-      [0, 15, -21, 14, 24]
-    ]) {
-      const vl2 = new dp("#2b66df", inten, dist, 1.12);
-      vl2.position.set(lx, ly, lz);
-      vl2.userData.baseIntensity = inten;
-      group.add(vl2);
-      vaultBounceLights.push(vl2);
-    }
-    for (const pSide of [-1, 1]) {
-      for (const pz of [2, -10]) {
-        const vitrineWash = new dp("#6aa4ff", 5.4, 16, 1.35);
-        vitrineWash.position.set(pSide * 4, 4.4, pz);
-        vitrineWash.userData.baseIntensity = 5.4;
-        group.add(vitrineWash);
-        vaultBounceLights.push(vitrineWash);
-      }
-      const aisleWash = new dp("#3b78f0", 8.5, 22, 1.15);
-      aisleWash.position.set(pSide * 11.2, 5.2, -3.5);
-      aisleWash.userData.baseIntensity = 8.5;
-      group.add(aisleWash);
-      vaultBounceLights.push(aisleWash);
-    }
-    sovereignSpot = new op("#fff0cc", 175, 38, 0.21, 0.56, 1.12);
-    sovereignSpot.position.set(0, 23, -17.2);
-    sovereignSpot.target.position.set(0, 4.45, -20.5);
-    sovereignSpot.castShadow = true;
-    sovereignSpot.shadow.mapSize.set(1024, 1024);
-    sovereignSpot.shadow.camera.near = 4;
-    sovereignSpot.shadow.camera.far = 36;
-    sovereignSpot.shadow.bias = -4e-4;
-    sovereignSpot.shadow.normalBias = 0.028;
-    group.add(sovereignSpot, sovereignSpot.target);
-    sovereignWarmFill = new dp("#ffe4b5", 17.5, 16, 1.25);
-    sovereignWarmFill.position.set(0, 4.5, -16.8);
-    group.add(sovereignWarmFill);
-    const beamTop = new Ci(0, 23, -17.2);
-    const beamBot = new Ci(0, 1.4, -20.5);
-    const beamVec = beamBot.clone().sub(beamTop);
-    const beamLen = beamVec.length();
-    const beamMid = beamTop.clone().addScaledVector(beamVec, 0.5);
-    const coneGeo = new pu(0.58, 3.05, beamLen, 36, 1, true);
-    sovereignConeMat = new Xs({
+    paintingSpot = new op("#FFE0A3", 165, 38, 0.21, 0.56, 1.12);
+    paintingSpot.position.set(0, 23, -17.2);
+    paintingSpot.target.position.set(0, 4.45, -20.5);
+    paintingSpot.castShadow = true;
+    paintingSpot.shadow.mapSize.set(1024, 1024);
+    paintingSpot.shadow.bias = -4e-4;
+    paintingSpot.shadow.normalBias = 0.025;
+    paintingSpot.userData.baseIntensity = 165;
+    group.add(paintingSpot, paintingSpot.target);
+    paintingFill = new dp("#FFE4B5", 15, 16, 1.25);
+    paintingFill.position.set(0, 4.5, -16.8);
+    paintingFill.userData.baseIntensity = 15;
+    group.add(paintingFill);
+    const chandelierPositions = [
+      [0, 8.35, 10.75],
+      [0, 8.35, 3.25],
+      [0, 8.35, -4.25],
+      [0, 8.35, -11.75]
+    ];
+    chandelierPositions.forEach((position) => {
+      const light = new dp("#FFC98A", 52, 12, 2);
+      light.position.set(...position);
+      light.castShadow = false;
+      light.userData.baseIntensity = 52;
+      chandelierLights.push(light);
+      group.add(light);
+    });
+    const coneLength = Math.hypot(23 - 1.4, 20.5 - 17.2);
+    const coneMat = new Xs({
       transparent: true,
       depthWrite: false,
       side: p,
       blending: g,
       uniforms: {
-        uColor: { value: new Kr("#ffebc4") },
+        uColor: { value: new Kr("#FFEBC4") },
         uOpacity: { value: 0.11 }
       },
       vertexShader: `
         varying vec2 vUv;
-        varying vec3 vNormalW;
-        varying vec3 vViewDirW;
         void main() {
           vUv = uv;
-          vec4 wp = modelMatrix * vec4(position, 1.0);
-          vNormalW = normalize(mat3(modelMatrix) * normal);
-          vViewDirW = normalize(cameraPosition - wp.xyz);
-          gl_Position = projectionMatrix * viewMatrix * wp;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
+        varying vec2 vUv;
         uniform vec3 uColor;
         uniform float uOpacity;
-        varying vec2 vUv;
-        varying vec3 vNormalW;
-        varying vec3 vViewDirW;
         void main() {
-          float vy = clamp(vUv.y, 0.0, 1.0);
-          float vFade = smoothstep(0.0, 0.25, vy) * smoothstep(1.0, 0.52, vy);
-          float ndotv = clamp(abs(dot(normalize(vNormalW), normalize(vViewDirW))), 0.0, 1.0);
-          float rim = pow(ndotv, 1.85);
-          float a = clamp(vFade * rim * uOpacity, 0.0, 1.0);
-          gl_FragColor = vec4(uColor, a);
+          float edge = pow(max(0.0001, sin(vUv.x * 3.14159265)), 0.65);
+          float fade = smoothstep(0.0, 0.15, vUv.y) * (1.0 - smoothstep(0.82, 1.0, vUv.y));
+          gl_FragColor = vec4(uColor, uOpacity * edge * fade);
         }
       `
     });
-    const sovereignCone = new Bs(coneGeo, sovereignConeMat);
-    sovereignCone.position.copy(beamMid);
-    sovereignCone.quaternion.setFromUnitVectors(new Ci(0, 1, 0), beamVec.clone().normalize());
-    sovereignCone.renderOrder = 3;
-    group.add(sovereignCone);
+    paintingCone = new Bs(new pu(0.58, 3.05, coneLength, 36, 1, true), coneMat);
+    paintingCone.position.set(0, (23 + 1.4) * 0.5, (-17.2 - 20.5) * 0.5);
+    paintingCone.quaternion.setFromUnitVectors(
+      new Ci(0, 1, 0),
+      new Ci(0, 23 - 1.4, -17.2 + 20.5).normalize()
+    );
+    paintingCone.renderOrder = 3;
+    group.add(paintingCone);
     beamMat = new Xs({
       transparent: true,
       depthWrite: false,
       side: p,
       blending: g,
       uniforms: {
-        uColor: { value: new Kr("#2766e8") },
-        uCoreColor: { value: new Kr("#6ca8ff") },
-        uOpacity: { value: 0.16 },
+        uColor: { value: new Kr("#416EAD") },
+        uCoreColor: { value: new Kr("#9BBCE5") },
+        uOpacity: { value: 0.13 },
         uCamPos: { value: new Ci() }
       },
       vertexShader: `
         varying vec2 vUv;
         varying vec3 vWorldPos;
-        varying vec3 vNormalW;
+        varying vec3 vWorldNormal;
         void main() {
           vUv = uv;
-          vec4 wp = modelMatrix * vec4(position, 1.0);
-          vWorldPos = wp.xyz;
-          vNormalW = normalize(mat3(modelMatrix) * normal);
-          gl_Position = projectionMatrix * viewMatrix * wp;
+          vec4 world = modelMatrix * vec4(position, 1.0);
+          vWorldPos = world.xyz;
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * world;
         }
       `,
       fragmentShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
         uniform vec3 uColor;
         uniform vec3 uCoreColor;
         uniform float uOpacity;
         uniform vec3 uCamPos;
-        varying vec2 vUv;
-        varying vec3 vWorldPos;
-        varying vec3 vNormalW;
         void main() {
-          float ux = clamp(vUv.x, 0.0, 1.0);
-          float uy = clamp(vUv.y, 0.0, 1.0);
-          float s = max(0.0, sin(ux * 3.14159265));
-          float xFade = s * s;
-          float stria = 0.72 + 0.28 * sin(ux * 22.0);
-          float yFade = smoothstep(0.0, 0.36, uy) * smoothstep(1.0, 0.10, uy);
-
-          // Grazing-angle & near-camera fade so player walking inside rays never hits hard card seams!
-          vec3 V = normalize(uCamPos - vWorldPos);
-          float angFade = smoothstep(0.05, 0.38, abs(dot(normalize(vNormalW), V)));
-          float distFade = smoothstep(1.8, 4.8, length(uCamPos - vWorldPos));
-
-          vec3 col = mix(uColor, uCoreColor, xFade * stria * 0.55);
-          float a = clamp(xFade * yFade * stria * angFade * distFade * uOpacity, 0.0, 1.0);
-          gl_FragColor = vec4(col, a);
+          float across = pow(max(0.0001, sin(vUv.x * 3.14159265)), 1.6);
+          float along = smoothstep(0.0, 0.16, vUv.y) * (1.0 - smoothstep(0.76, 1.0, vUv.y));
+          vec3 viewDir = normalize(uCamPos - vWorldPos);
+          float facing = abs(dot(viewDir, normalize(vWorldNormal)));
+          float grazing = smoothstep(0.04, 0.38, facing);
+          float dist = length(uCamPos - vWorldPos);
+          float distanceFade = 1.0 - smoothstep(28.0, 58.0, dist);
+          vec3 color = mix(uColor, uCoreColor, across * 0.55);
+          gl_FragColor = vec4(color, uOpacity * across * along * grazing * distanceFade);
         }
       `
     });
-    const shaftGeo = new ha(1, 1);
-    const shaftZs = [18.25, 10.75, 3.25, -4.25, -11.75];
-    for (const sz of shaftZs) {
-      for (const [rotY, offZ] of [[0.24, -0.5], [-0.28, 0.5]]) {
-        const shaft = new Bs(shaftGeo, beamMat);
-        shaft.position.set(6.8, 7.6, sz + offZ);
-        shaft.rotation.set(0.06, rotY, 0.76);
-        shaft.scale.set(3.2, 16.5, 1);
-        shaft.renderOrder = 3;
-        group.add(shaft);
-        beamMeshes.push(shaft);
+    for (const side of [-1, 1]) {
+      for (const z2 of [18.25, 10.75, 3.25, -4.25, -11.75, -19]) {
+        addBeam(
+          new Ci(side * 13, 14.15, z2),
+          new Ci(side * 1.3, 0.55, z2 - 2.2),
+          2.25
+        );
       }
     }
-    function makeDustSystem(count, colorHex, size, opacity, seedVal, posFn) {
-      const base = [];
-      const arr = new Float32Array(count * 3);
-      let s = seedVal;
-      const rnd = () => {
-        s = s * 1664525 + 1013904223 >>> 0;
-        return s / 4294967296;
-      };
-      for (let i = 0; i < count; i++) {
-        const [x, y2, z2] = posFn(rnd);
-        base.push({ bx: x, by: y2, bz: z2, ph: rnd() * Math.PI * 2, spd: 0.3 + rnd() * 0.5 });
-        arr[i * 3] = x;
-        arr[i * 3 + 1] = y2;
-        arr[i * 3 + 2] = z2;
-      }
-      const geo = new Es();
-      geo.setAttribute("position", new cs(arr, 3));
-      const mat = new Ch({
-        map: mats.bokehMap,
-        color: new Kr(colorHex),
-        size,
-        sizeAttenuation: true,
-        transparent: true,
-        opacity,
-        blending: g,
-        depthWrite: false
-      });
-      const pts = new Dh(geo, mat);
-      group.add(pts);
-      return { pts, base };
-    }
-    const navyRes = makeDustSystem(90, "#629eff", 0.24, 0.3, 42, (rnd) => [
-      (rnd() - 0.5) * 18,
-      1.2 + rnd() * 14,
-      -18 + rnd() * 40
-    ]);
-    navyDust = navyRes.pts;
-    navyDustBase.push(...navyRes.base);
-    const goldRes = makeDustSystem(42, "#fff0c8", 0.26, 0.42, 777, (rnd) => [
-      (rnd() - 0.5) * 4.4,
-      1.5 + rnd() * 14,
-      -21.5 + rnd() * 5.2
-    ]);
-    goldDust = goldRes.pts;
-    goldDustBase.push(...goldRes.base);
+    navyDust = makeDustSystem(72, "#91A9D4", 0.095, 0.32, 1.7, (i) => {
+      const a = i * 2.39996;
+      return [Math.sin(a) * (2 + i % 7), 1.2 + i % 13 * 1.1, 22 - i % 47];
+    });
+    goldDust = makeDustSystem(30, "#FFE2AC", 0.085, 0.42, 4.1, (i) => {
+      const a = i * 2.39996;
+      return [Math.sin(a) * 2.3, 2.2 + i % 9 * 0.62, -18.5 + Math.cos(a) * 2];
+    });
+    group.add(navyDust, goldDust);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = c;
     renderer.shadowMap.autoUpdate = false;
+    applyState();
+  }
+  function bindComponents(next) {
+    components = next || {};
+    applyState();
+  }
+  function applyState() {
+    if (!keyLight) return;
+    const materialize = 0.35 + 0.65 * materializeProgress;
+    keyLight.intensity = keyLight.userData.baseIntensity * materialize * state.ambient;
+    hemiLight.intensity = hemiLight.userData.baseIntensity * materialize * state.ambient;
+    paintingSpot.intensity = paintingSpot.userData.baseIntensity * materializeProgress * state.painting;
+    paintingFill.intensity = paintingFill.userData.baseIntensity * materializeProgress * state.painting;
+    chandelierLights.forEach((light, index) => {
+      light.intensity = light.userData.baseIntensity * materializeProgress * (state.lamps[index] ?? 0);
+    });
+    if (paintingCone) paintingCone.material.uniforms.uOpacity.value = 0.11 * state.painting;
+    if (beamMat) beamMat.uniforms.uOpacity.value = 0.13 * state.ambient;
+    if (components.chandeliers) {
+      components.chandeliers.setIllumination(state.lamps, state.corona);
+    }
+    if (components.pedestals) {
+      components.pedestals.setIllumination(state.pools);
+    }
+    if (components.gothicShell) {
+      const bayProgress = [0, 1, 6, 7].map(() => Math.max(0.04, state.ambient * 0.42));
+      bayProgress[2] = Math.max(state.ambient * 0.1, state.lamps[0]);
+      bayProgress[3] = Math.max(state.ambient * 0.1, state.lamps[1]);
+      bayProgress[4] = Math.max(state.ambient * 0.1, state.lamps[2]);
+      bayProgress[5] = Math.max(state.ambient * 0.1, state.lamps[3]);
+      bayProgress[6] = Math.max(state.ambient * 0.1, state.corona);
+      for (let bay = 0; bay < 8; bay += 1) {
+        components.gothicShell.setBayIllumination(bay, bayProgress[bay] * materializeProgress);
+      }
+    }
+  }
+  function setMaterializeProgress(m) {
+    materializeProgress = Zn.clamp(m, 0, 1);
+    applyState();
+  }
+  function setIntroVisuals(next) {
+    if (next.ambient !== void 0) state.ambient = Zn.clamp(next.ambient, 0, 1);
+    if (next.lamps) {
+      state.lamps = [0, 1, 2, 3].map((index) => Zn.clamp(next.lamps[index] ?? 0, 0, 1));
+    }
+    if (next.corona !== void 0) state.corona = Zn.clamp(next.corona, 0, 1);
+    if (next.pools !== void 0) state.pools = Zn.clamp(next.pools, 0, 1);
+    if (next.painting !== void 0) state.painting = Zn.clamp(next.painting, 0, 1);
+    applyState();
+  }
+  function setIllumination(t2, perLampProgress = []) {
+    const progress = Zn.clamp(t2, 0, 1);
+    const lamps = perLampProgress.length ? perLampProgress : [0, 1, 2, 3].map((index) => smooth012(index * 0.14, index * 0.14 + 0.4, progress));
+    setIntroVisuals({
+      ambient: 0.15 + 0.85 * smooth012(0, 0.68, progress),
+      lamps,
+      corona: smooth012(0.7, 0.94, progress),
+      pools: smooth012(0.28, 0.82, progress),
+      painting: smooth012(0.82, 1, progress)
+    });
   }
   function bakeStaticShadows() {
     renderer.shadowMap.needsUpdate = true;
   }
-  function setMaterializeProgress(m01) {
-    const m = Zn.clamp(m01, 0, 1);
-    if (keyLight) keyLight.intensity = 3.05 * m;
-    if (hemiLight) hemiLight.intensity = 0.82 * m;
-    vaultBounceLights.forEach((vl2) => {
-      vl2.intensity = vl2.userData.baseIntensity * m;
-    });
-    if (sovereignSpot) sovereignSpot.intensity = 175 * m;
-    if (sovereignWarmFill) sovereignWarmFill.intensity = 17.5 * m;
-    if (sovereignConeMat) sovereignConeMat.uniforms.uOpacity.value = 0.12 * m;
-    if (beamMat) beamMat.uniforms.uOpacity.value = 0.16 * m;
+  function driftDust(points, elapsed, speed) {
+    if (!points) return;
+    const attr = points.geometry.attributes.position;
+    const base = points.userData.basePositions;
+    for (let i = 0; i < attr.count; i += 1) {
+      attr.array[i * 3] = base[i * 3] + Math.sin(elapsed * speed + i * 1.7) * 0.08;
+      attr.array[i * 3 + 1] = base[i * 3 + 1] + Math.sin(elapsed * speed * 0.7 + i) * 0.12;
+    }
+    attr.needsUpdate = true;
   }
   function update(dt2, elapsed, camera) {
-    if (beamMat && camera) {
-      beamMat.uniforms.uCamPos.value.copy(camera.position);
-    }
-    for (const [pts, base] of [
-      [navyDust, navyDustBase],
-      [goldDust, goldDustBase]
-    ]) {
-      if (!pts) continue;
-      const attr = pts.geometry.attributes.position;
-      for (let i = 0; i < base.length; i++) {
-        const b = base[i];
-        attr.setXYZ(
-          i,
-          b.bx + Math.sin(elapsed * b.spd + b.ph) * 0.2,
-          b.by + Math.cos(elapsed * (b.spd * 0.8) + b.ph) * 0.16,
-          b.bz + Math.sin(elapsed * 0.35 + b.ph * 1.3) * 0.16
-        );
-      }
-      attr.needsUpdate = true;
-    }
+    if (beamMat) beamMat.uniforms.uCamPos.value.copy(camera.position);
+    driftDust(navyDust, elapsed, 0.18);
+    driftDust(goldDust, elapsed, 0.24);
   }
   function dispose() {
-    if (envRT) envRT.dispose();
-    if (beamMat) beamMat.dispose();
-    if (sovereignConeMat) sovereignConeMat.dispose();
   }
   return {
     group,
     BASE_FOG_DENSITY,
     buildEnvironment,
     buildLightsAndRays,
+    bindComponents,
     bakeStaticShadows,
     setMaterializeProgress,
+    setIntroVisuals,
+    setIllumination,
     update,
     dispose
   };
@@ -14692,6 +14713,7 @@ function createCathedralPostFX(renderer, width, height, dpr = 1) {
       tBlur: { value: blurB.texture },
       uBloomThreshold: { value: 1.24 },
       uBloomStrength: { value: 0.11 },
+      uBloomBoost: { value: 0 },
       uBloomTint: { value: new Ci(1, 0.99, 0.96) },
       uVignetteTint: { value: new Ci(0.015, 0.035, 0.11) },
       uMotionBlur: { value: 0 }
@@ -14704,7 +14726,8 @@ function createCathedralPostFX(renderer, width, height, dpr = 1) {
       uniform sampler2D tScene;
       uniform sampler2D tBlur;
       uniform float uBloomThreshold;
-      uniform float uBloomStrength;
+        uniform float uBloomStrength;
+        uniform float uBloomBoost;
       uniform vec3 uBloomTint;
       uniform vec3 uVignetteTint;
       uniform float uMotionBlur;
@@ -14733,7 +14756,7 @@ function createCathedralPostFX(renderer, width, height, dpr = 1) {
 
         vec3 blurCol = safeHDR(texture2D(tBlur, vUv).rgb);
         vec3 hi = clamp(blurCol - vec3(uBloomThreshold), vec3(0.0), vec3(14.0));
-        col += hi * uBloomTint * uBloomStrength;
+        col += hi * uBloomTint * (uBloomStrength + uBloomBoost);
 
         float rDist = length((vUv - 0.5) * vec2(1.16, 1.0));
         float vig = smoothstep(0.52, 1.02, rDist);
@@ -14752,6 +14775,9 @@ function createCathedralPostFX(renderer, width, height, dpr = 1) {
   const lastStats = { calls: 0, triangles: 0 };
   function setMotionBlur(strength = 0) {
     compositeMat.uniforms.uMotionBlur.value = Zn.clamp(strength, 0, 1);
+  }
+  function setBloomBoost(strength = 0) {
+    compositeMat.uniforms.uBloomBoost.value = Zn.clamp(strength, 0, 0.35);
   }
   function setSize(w2, h, nextDpr = 1) {
     const nw = Math.max(1, Math.round(w2 * nextDpr));
@@ -14805,6 +14831,7 @@ function createCathedralPostFX(renderer, width, height, dpr = 1) {
     group: new jl(),
     render,
     setMotionBlur,
+    setBloomBoost,
     setSize,
     getSceneStats: () => lastStats,
     dispose
@@ -14982,11 +15009,11 @@ var PRESETS = {
   sovereign: {
     id: "sovereign",
     label: "\u664B\u89C1\u4E3B\u4F4D",
-    pos: [0, 1.12, 10.8],
-    target: [0, 4.95, -20.5],
-    fov: 46,
+    pos: [0, 1.6, 12],
+    target: [0, 4.75, -20.5],
+    fov: 48,
     zone: "ground",
-    eyeH: 1.12
+    eyeH: 1.6
   },
   masterpiece: {
     id: "masterpiece",
@@ -14999,18 +15026,18 @@ var PRESETS = {
   },
   mezzanine: {
     id: "mezzanine",
-    label: "\u4E8C\u697C\u4FEF\u77B0",
-    pos: [0, 11.55, 11.68],
-    target: [0, 4.1, -18.5],
-    fov: 52,
+    label: "\u98CE\u7434\u5ECA\u56DE\u671B",
+    pos: [0, 10.85, 12.15],
+    target: [0, 15.25, 28.2],
+    fov: 54,
     zone: "mezzanine",
-    eyeH: 2.35
+    eyeH: 1.65
   },
   stainedGlass: {
     id: "stainedGlass",
     label: "\u82B1\u7A97\u5149\u5F71",
     pos: [-7.6, 3.1, 8.8],
-    target: [10.8, 10, -1.5],
+    target: [10.8, 14, -1.5],
     fov: 48,
     zone: "ground",
     eyeH: 1.65
@@ -15041,7 +15068,7 @@ function shortestAngleDiff(targetAngle, currentAngle) {
   if (d2 < -Math.PI) d2 += Math.PI * 2;
   return d2;
 }
-function createCameraController(camera, domElement, collider, { onMaterializeStep, onDiveStep, onStageChange }) {
+function createCameraController(camera, domElement, collider, { onMaterializeStep, onDiveStep, onIntroStep, onStageChange }) {
   camera.rotation.order = "YXZ";
   let stage = "loading";
   let matElapsed = 0;
@@ -15049,7 +15076,14 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
   const MAT_DURATION = 1.35;
   let diveElapsed = 0;
   let diveFrozen = false;
-  const DIVE_DURATION = 3;
+  const DIVE_DURATION = 2.4;
+  let lookElapsed = 0;
+  const LOOK_HOLD_DURATION = 1;
+  let igniteElapsed = 0;
+  const IGNITE_DURATION = 2.5;
+  let reducedElapsed = 0;
+  const REDUCED_DURATION = 0.6;
+  let reducedMotion = false;
   let yaw = 0;
   let pitch = -1.555;
   let targetYaw = 0;
@@ -15058,15 +15092,14 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
   const roamPos = new Ci(0, 15.8, 18);
   const vel = new Ci();
   const moveState = { zone: "ground", footY: 0, stairTheta: 0.24 * Math.PI };
-  let eyeH = 1.12;
-  let targetEyeH = 1.12;
+  let eyeH = 1.6;
+  let targetEyeH = 1.6;
   const divePosCurve = new Jh([
     new Ci(0, 15.8, 18),
     new Ci(0, 10.6, 18),
     new Ci(0, 5.2, 17.6),
-    new Ci(0, 2.25, 14.4),
-    new Ci(0, 1.32, 11.8),
-    new Ci(0, 1.12, 10.8)
+    new Ci(0, 2.4, 14.5),
+    new Ci(0, 1.6, 12)
   ]);
   const sovereignYP = computeYawPitch(
     new Ci(...PRESETS.sovereign.pos),
@@ -15080,48 +15113,80 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
   let tweenEndYaw = 0;
   let tweenStartPitch = 0;
   let tweenEndPitch = 0;
-  let tweenStartFov = 46;
-  let tweenEndFov = 46;
+  let tweenStartFov = 48;
+  let tweenEndFov = 48;
   let tweenEndZone = "ground";
   let tweenEndEyeH = 1.65;
+  function setCameraFov(nextFov) {
+    if (Math.abs(camera.fov - nextFov) > 0.04) {
+      camera.fov = nextFov;
+      camera.updateProjectionMatrix();
+    }
+  }
+  function emitIntro(ambient, lamps, corona, pools, painting, bloomBoost = 0) {
+    onIntroStep?.({ ambient, lamps, corona, pools, painting, bloomBoost });
+  }
+  function emitDarkIntro(ambient) {
+    emitIntro(ambient, [0, 0, 0, 0], 0, 0, 0, 0);
+  }
   function applyLoadingPose(p01) {
     const p2 = Zn.clamp(p01, 0, 1);
     camera.position.set(0, 17.2 - p2 * 0.4, 18);
     camera.rotation.set(-1.555, 0, 0);
-    if (Math.abs(camera.fov - 54) > 0.05) {
-      camera.fov = 54;
-      camera.updateProjectionMatrix();
-    }
+    setCameraFov(54);
     onDiveStep?.({ motionBlur: 0 });
   }
   function applyMaterializeAt(m01) {
     const m = Zn.clamp(m01, 0, 1);
     camera.position.set(0, Zn.lerp(16.8, 15.8, smooth01(0, 1, m)), 18);
     camera.rotation.set(-1.555, 0, 0);
-    if (Math.abs(camera.fov - 54) > 0.05) {
-      camera.fov = 54;
-      camera.updateProjectionMatrix();
-    }
+    setCameraFov(54);
     const scanY = Zn.lerp(16.5, -1.4, smooth01(0, 0.96, m));
     onMaterializeStep?.({ m, scanY });
     onDiveStep?.({ motionBlur: 0 });
+    emitDarkIntro(0.65);
   }
   function applyDiveAt(t01) {
     const u2 = Zn.clamp(t01, 0, 1);
     const curveT = Zn.clamp(1 - Math.pow(1 - u2, 1.32), 0, 1);
-    const pos = divePosCurve.getPoint(curveT);
-    camera.position.copy(pos);
-    const whipT = smooth01(0.4, 0.96, u2);
-    const divePitch = Zn.lerp(-1.555, sovereignYP.pitch, whipT);
+    camera.position.copy(divePosCurve.getPoint(curveT));
+    const divePitch = Zn.lerp(-1.555, 0.02, smooth01(0.38, 0.96, u2));
     camera.rotation.set(divePitch, 0, 0);
     const peakStretch = Math.sin(smooth01(0.06, 0.92, u2) * Math.PI);
-    const nextFov = Zn.lerp(54, 46, u2) + peakStretch * 26;
-    if (Math.abs(camera.fov - nextFov) > 0.05) {
-      camera.fov = nextFov;
-      camera.updateProjectionMatrix();
-    }
-    const blur = Math.sin(smooth01(0.08, 0.9, u2) * Math.PI) * 0.65;
+    setCameraFov(Zn.lerp(54, 50, u2) + peakStretch * 20);
+    const blur = Math.sin(smooth01(0.08, 0.9, u2) * Math.PI) * 0.58;
     onDiveStep?.({ motionBlur: blur, u: u2 });
+    emitDarkIntro(0.55);
+  }
+  function applyLookAt(t01) {
+    const u2 = Zn.clamp(t01, 0, 1);
+    camera.position.set(...PRESETS.sovereign.pos);
+    camera.rotation.set(Zn.lerp(0.02, 1.1, smooth01(0, 1, u2)), 0, 0);
+    setCameraFov(Zn.lerp(50, 58, smooth01(0, 1, u2)));
+    onDiveStep?.({ motionBlur: 0 });
+    emitDarkIntro(Zn.lerp(0.55, 0.15, smooth01(0, 0.3, u2)));
+  }
+  function applyIgniteAt(seconds) {
+    const t2 = Zn.clamp(seconds, 0, IGNITE_DURATION);
+    const lamps = [0, 1, 2, 3].map((index) => smooth01(index * 0.35, index * 0.35 + 0.42, t2));
+    let bloomBoost = 0;
+    for (let index = 0; index < 4; index += 1) {
+      const d2 = (t2 - (index * 0.35 + 0.18)) / 0.11;
+      bloomBoost += Math.exp(-d2 * d2) * 0.085;
+    }
+    camera.position.set(...PRESETS.sovereign.pos);
+    const settle = smooth01(0.5, IGNITE_DURATION, t2);
+    camera.rotation.set(Zn.lerp(1.1, sovereignYP.pitch, settle), 0, 0);
+    setCameraFov(Zn.lerp(58, PRESETS.sovereign.fov, settle));
+    onDiveStep?.({ motionBlur: 0 });
+    emitIntro(
+      0.15 + 0.85 * smooth01(0.15, 2.05, t2),
+      lamps,
+      smooth01(1.35, 2.05, t2),
+      smooth01(0.55, 1.65, t2),
+      smooth01(1.8, 2.48, t2),
+      Math.min(0.2, bloomBoost)
+    );
   }
   function setStage(next) {
     if (stage === next) return;
@@ -15136,11 +15201,15 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
     applyLoadingPose(p01);
   }
   function startMaterializeAndDive() {
+    reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
     setStage("materialize");
     matElapsed = 0;
     matFrozen = false;
     diveElapsed = 0;
     diveFrozen = false;
+    lookElapsed = 0;
+    igniteElapsed = 0;
+    reducedElapsed = 0;
     tweenActive = false;
     applyMaterializeAt(0);
   }
@@ -15158,6 +15227,24 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
     diveFrozen = false;
     tweenActive = false;
     applyDiveAt(0);
+  }
+  function startLook() {
+    lookElapsed = 0;
+    setStage("lookup");
+    applyLookAt(0);
+  }
+  function startIgnite() {
+    igniteElapsed = 0;
+    setStage("ignite");
+    applyIgniteAt(0);
+  }
+  function startReducedFade() {
+    reducedElapsed = 0;
+    setStage("reduced");
+    camera.position.set(...PRESETS.sovereign.pos);
+    camera.rotation.set(sovereignYP.pitch, sovereignYP.yaw, 0);
+    setCameraFov(PRESETS.sovereign.fov);
+    emitIntro(0.15, [0, 0, 0, 0], 0, 0, 0, 0);
   }
   function setDiveTime(sec) {
     setStage("dive");
@@ -15184,9 +15271,9 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
     tweenActive = false;
     camera.position.copy(roamPos);
     camera.rotation.set(pitch, yaw, 0);
-    camera.fov = desiredFov;
-    camera.updateProjectionMatrix();
+    setCameraFov(desiredFov);
     onDiveStep?.({ motionBlur: 0 });
+    emitIntro(1, [1, 1, 1, 1], 1, 1, 1, 0);
     setStage("explore");
   }
   function focusPose(posArr, targetArr, instant = false, fov = 44, endZone = "ground", endEye = 1.65) {
@@ -15210,8 +15297,7 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
       desiredFov = fov;
       camera.position.copy(roamPos);
       camera.rotation.set(pitch, yaw, 0);
-      camera.fov = desiredFov;
-      camera.updateProjectionMatrix();
+      setCameraFov(desiredFov);
       return;
     }
     tweenActive = true;
@@ -15239,7 +15325,14 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
   let prevY = 0;
   let movedDistance = 0;
   let lastWasClick = false;
+  function isIntroStage() {
+    return stage === "materialize" || stage === "dive" || stage === "lookup" || stage === "ignite" || stage === "reduced";
+  }
   domElement.addEventListener("pointerdown", (e) => {
+    if (isIntroStage()) {
+      finishDiveToExplore();
+      return;
+    }
     if (stage !== "explore") return;
     dragging = true;
     downX = prevX = e.clientX;
@@ -15266,6 +15359,10 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
   });
   window.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isIntroStage()) {
+      finishDiveToExplore();
+      return;
+    }
     keys.add(e.code);
   });
   window.addEventListener("keyup", (e) => {
@@ -15287,7 +15384,8 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
         const m = Zn.clamp(matElapsed / MAT_DURATION, 0, 1);
         applyMaterializeAt(m);
         if (matElapsed >= MAT_DURATION) {
-          startDive();
+          if (reducedMotion) startReducedFade();
+          else startDive();
         }
       }
       return;
@@ -15295,20 +15393,35 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
     if (stage === "dive") {
       if (!diveFrozen) {
         diveElapsed += dt2;
-        const u2 = Zn.clamp(diveElapsed / DIVE_DURATION, 0, 1);
-        applyDiveAt(u2);
-        if (diveElapsed >= DIVE_DURATION) {
-          finishDiveToExplore();
-        }
+        applyDiveAt(diveElapsed / DIVE_DURATION);
+        if (diveElapsed >= DIVE_DURATION) startLook();
       }
+      return;
+    }
+    if (stage === "lookup") {
+      lookElapsed += dt2;
+      applyLookAt(lookElapsed / LOOK_HOLD_DURATION);
+      if (lookElapsed >= LOOK_HOLD_DURATION) startIgnite();
+      return;
+    }
+    if (stage === "ignite") {
+      igniteElapsed += dt2;
+      applyIgniteAt(igniteElapsed);
+      if (igniteElapsed >= IGNITE_DURATION) finishDiveToExplore();
+      return;
+    }
+    if (stage === "reduced") {
+      reducedElapsed += dt2;
+      const p2 = smooth01(0, REDUCED_DURATION, reducedElapsed);
+      emitIntro(0.15 + 0.85 * p2, [p2, p2, p2, p2], p2, p2, p2, 0);
+      if (reducedElapsed >= REDUCED_DURATION) finishDiveToExplore();
       return;
     }
     if (tweenActive && tweenCurve) {
       tweenElapsed += dt2;
       const u2 = Zn.clamp(tweenElapsed / TWEEN_DURATION, 0, 1);
       const ease = u2 * u2 * u2 * (u2 * (u2 * 6 - 15) + 10);
-      const pt2 = tweenCurve.getPoint(ease);
-      roamPos.copy(pt2);
+      roamPos.copy(tweenCurve.getPoint(ease));
       yaw = tweenStartYaw + shortestAngleDiff(tweenEndYaw, tweenStartYaw) * ease;
       pitch = Zn.lerp(tweenStartPitch, tweenEndPitch, ease);
       targetYaw = yaw;
@@ -15316,10 +15429,7 @@ function createCameraController(camera, domElement, collider, { onMaterializeSte
       desiredFov = Zn.lerp(tweenStartFov, tweenEndFov, ease);
       camera.position.copy(roamPos);
       camera.rotation.set(pitch, yaw, 0);
-      if (Math.abs(camera.fov - desiredFov) > 0.04) {
-        camera.fov = desiredFov;
-        camera.updateProjectionMatrix();
-      }
+      setCameraFov(desiredFov);
       if (u2 >= 1) {
         tweenActive = false;
         moveState.zone = tweenEndZone;
@@ -15570,7 +15680,7 @@ function showFallback() {
   const fb = document.getElementById("webgl-fallback");
   if (fb) fb.hidden = false;
 }
-var smooth012 = (e0, e1, v) => {
+var smooth013 = (e0, e1, v) => {
   const t2 = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));
   return t2 * t2 * (3 - 2 * t2);
 };
@@ -15635,21 +15745,21 @@ async function init() {
     solidWorldGroup.visible = false;
     wireframeGroup.visible = true;
     mats.wireframeLineMat.uniforms.uScanY.value = 30;
-    mats.wireframeLineMat.uniforms.uWireProgress.value = smooth012(0, 0.96, p2);
+    mats.wireframeLineMat.uniforms.uWireProgress.value = smooth013(0, 0.96, p2);
     mats.wireframeLineMat.uniforms.uWireOpacity.value = 1;
     ui2?.setLoadProgress(p2);
     cameraRig?.setLoadingProgress(p2);
   }
   function applyMaterializeVisuals(m01, scanY) {
     solidWorldGroup.visible = true;
-    const wireFade = 1 - smooth012(0.86, 1, m01);
+    const wireFade = 1 - smooth013(0.86, 1, m01);
     wireframeGroup.visible = wireFade > 0.01;
     mats.wireframeLineMat.uniforms.uWireProgress.value = 1;
     mats.wireframeLineMat.uniforms.uScanY.value = scanY;
     mats.wireframeLineMat.uniforms.uWireOpacity.value = wireFade;
     scanClipPlane.constant = -scanY;
     renderer.clippingPlanes = m01 < 0.99 ? [scanClipPlane] : [];
-    lighting.setMaterializeProgress(0.35 + 0.65 * smooth012(0, 0.85, m01));
+    lighting.setMaterializeProgress(0.35 + 0.65 * smooth013(0, 0.85, m01));
   }
   cameraRig = createCameraController(camera, canvas, collider, {
     onMaterializeStep({ m, scanY }) {
@@ -15657,6 +15767,10 @@ async function init() {
     },
     onDiveStep({ motionBlur }) {
       postfx.setMotionBlur(motionBlur || 0);
+    },
+    onIntroStep(introState) {
+      lighting.setIntroVisuals(introState);
+      postfx.setBloomBoost(introState.bloomBoost || 0);
     },
     onStageChange(stage) {
       ui2?.setStage(stage);
@@ -15675,6 +15789,8 @@ async function init() {
         lighting.setMaterializeProgress(1);
         if (stage === "explore") {
           postfx.setMotionBlur(0);
+          postfx.setBloomBoost(0);
+          lighting.setIntroVisuals({ ambient: 1, lamps: [1, 1, 1, 1], corona: 1, pools: 1, painting: 1 });
         }
       }
     }
@@ -15813,6 +15929,8 @@ async function init() {
       run: () => {
         lighting.buildEnvironment();
         lighting.buildLightsAndRays();
+        lighting.bindComponents({ gothicShell, chandeliers, pedestals });
+        lighting.setIntroVisuals({ ambient: 1, lamps: [1, 1, 1, 1], corona: 1, pools: 1, painting: 1 });
         solidWorldGroup.add(lighting.group);
       }
     },

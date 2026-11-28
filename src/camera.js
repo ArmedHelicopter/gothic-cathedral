@@ -5,11 +5,11 @@ export const PRESETS = {
   sovereign: {
     id: 'sovereign',
     label: '晋见主位',
-    pos: [0.0, 1.12, 10.8],
-    target: [0.0, 4.95, -20.5],
-    fov: 46,
+    pos: [0.0, 1.6, 12.0],
+    target: [0.0, 4.75, -20.5],
+    fov: 48,
     zone: 'ground',
-    eyeH: 1.12,
+    eyeH: 1.6,
   },
   masterpiece: {
     id: 'masterpiece',
@@ -22,18 +22,18 @@ export const PRESETS = {
   },
   mezzanine: {
     id: 'mezzanine',
-    label: '二楼俯瞰',
-    pos: [0.0, 11.55, 11.68],
-    target: [0.0, 4.10, -18.5],
-    fov: 52,
+    label: '风琴廊回望',
+    pos: [0.0, 10.85, 12.15],
+    target: [0.0, 15.25, 28.2],
+    fov: 54,
     zone: 'mezzanine',
-    eyeH: 2.35,
+    eyeH: 1.65,
   },
   stainedGlass: {
     id: 'stainedGlass',
     label: '花窗光影',
     pos: [-7.6, 3.10, 8.8],
-    target: [10.8, 10.0, -1.5],
+    target: [10.8, 14.0, -1.5],
     fov: 48,
     zone: 'ground',
     eyeH: 1.65,
@@ -67,19 +67,11 @@ function shortestAngleDiff(targetAngle, currentAngle) {
   return d;
 }
 
-/**
- * Sovereign FPV Camera Controller:
- * - Stage 1 ('loading'): Top-down stairwell wireframe silhouette bound to 0% -> 100% real resource loading
- * - Stage 2 ('materialize'): 1.35s top-down spatial scan-wave turning wireframe spiral stairs into solid Carrara marble
- * - Stage 3 ('dive'): Smooth 3.00s axial FPV plunge down the spiral shaft with dynamic FOV stretch & motion blur,
- *   whipping up cleanly beneath the North arch into low-angle Sovereign Audience framing
- * - Stage 4 ('explore'): Damped WASD/Arrow free roam (climbs 56 spiral steps <-> 2F Mezzanine) + Preset camera lerps
- */
 export function createCameraController(
   camera,
   domElement,
   collider,
-  { onMaterializeStep, onDiveStep, onStageChange }
+  { onMaterializeStep, onDiveStep, onIntroStep, onStageChange }
 ) {
   camera.rotation.order = 'YXZ';
 
@@ -87,10 +79,16 @@ export function createCameraController(
   let matElapsed = 0;
   let matFrozen = false;
   const MAT_DURATION = 1.35;
-
   let diveElapsed = 0;
   let diveFrozen = false;
-  const DIVE_DURATION = 3.00;
+  const DIVE_DURATION = 2.40;
+  let lookElapsed = 0;
+  const LOOK_HOLD_DURATION = 1.00;
+  let igniteElapsed = 0;
+  const IGNITE_DURATION = 2.50;
+  let reducedElapsed = 0;
+  const REDUCED_DURATION = 0.60;
+  let reducedMotion = false;
 
   let yaw = 0;
   let pitch = -1.555;
@@ -101,23 +99,21 @@ export function createCameraController(
   const roamPos = new THREE.Vector3(0.0, 15.8, 18.0);
   const vel = new THREE.Vector3();
   const moveState = { zone: 'ground', footY: 0.0, stairTheta: 0.24 * Math.PI };
-  let eyeH = 1.12;
-  let targetEyeH = 1.12;
+  let eyeH = 1.6;
+  let targetEyeH = 1.6;
 
   const divePosCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0.0, 15.8, 18.0),
     new THREE.Vector3(0.0, 10.6, 18.0),
     new THREE.Vector3(0.0, 5.2, 17.6),
-    new THREE.Vector3(0.0, 2.25, 14.4),
-    new THREE.Vector3(0.0, 1.32, 11.8),
-    new THREE.Vector3(0.0, 1.12, 10.8),
+    new THREE.Vector3(0.0, 2.4, 14.5),
+    new THREE.Vector3(0.0, 1.6, 12.0),
   ]);
   const sovereignYP = computeYawPitch(
     new THREE.Vector3(...PRESETS.sovereign.pos),
     new THREE.Vector3(...PRESETS.sovereign.target)
   );
 
-  // Preset Camera Transition Tween State
   let tweenActive = false;
   let tweenElapsed = 0;
   const TWEEN_DURATION = 1.15;
@@ -126,19 +122,31 @@ export function createCameraController(
   let tweenEndYaw = 0;
   let tweenStartPitch = 0;
   let tweenEndPitch = 0;
-  let tweenStartFov = 46;
-  let tweenEndFov = 46;
+  let tweenStartFov = 48;
+  let tweenEndFov = 48;
   let tweenEndZone = 'ground';
   let tweenEndEyeH = 1.65;
+
+  function setCameraFov(nextFov) {
+    if (Math.abs(camera.fov - nextFov) > 0.04) {
+      camera.fov = nextFov;
+      camera.updateProjectionMatrix();
+    }
+  }
+
+  function emitIntro(ambient, lamps, corona, pools, painting, bloomBoost = 0) {
+    onIntroStep?.({ ambient, lamps, corona, pools, painting, bloomBoost });
+  }
+
+  function emitDarkIntro(ambient) {
+    emitIntro(ambient, [0, 0, 0, 0], 0, 0, 0, 0);
+  }
 
   function applyLoadingPose(p01) {
     const p = THREE.MathUtils.clamp(p01, 0, 1);
     camera.position.set(0.0, 17.2 - p * 0.4, 18.0);
     camera.rotation.set(-1.555, 0, 0);
-    if (Math.abs(camera.fov - 54) > 0.05) {
-      camera.fov = 54;
-      camera.updateProjectionMatrix();
-    }
+    setCameraFov(54);
     onDiveStep?.({ motionBlur: 0.0 });
   }
 
@@ -146,35 +154,56 @@ export function createCameraController(
     const m = THREE.MathUtils.clamp(m01, 0, 1);
     camera.position.set(0.0, THREE.MathUtils.lerp(16.8, 15.8, smooth01(0, 1, m)), 18.0);
     camera.rotation.set(-1.555, 0, 0);
-    if (Math.abs(camera.fov - 54) > 0.05) {
-      camera.fov = 54;
-      camera.updateProjectionMatrix();
-    }
+    setCameraFov(54);
     const scanY = THREE.MathUtils.lerp(16.5, -1.4, smooth01(0.0, 0.96, m));
     onMaterializeStep?.({ m, scanY });
     onDiveStep?.({ motionBlur: 0.0 });
+    emitDarkIntro(0.65);
   }
 
   function applyDiveAt(t01) {
     const u = THREE.MathUtils.clamp(t01, 0, 1);
-    // Energetic plunge with smooth progressive late braking over 3.0s
     const curveT = THREE.MathUtils.clamp(1.0 - Math.pow(1.0 - u, 1.32), 0, 1);
-    const pos = divePosCurve.getPoint(curveT);
-    camera.position.copy(pos);
-
-    const whipT = smooth01(0.40, 0.96, u);
-    const divePitch = THREE.MathUtils.lerp(-1.555, sovereignYP.pitch, whipT);
+    camera.position.copy(divePosCurve.getPoint(curveT));
+    const divePitch = THREE.MathUtils.lerp(-1.555, 0.02, smooth01(0.38, 0.96, u));
     camera.rotation.set(divePitch, 0, 0);
-
     const peakStretch = Math.sin(smooth01(0.06, 0.92, u) * Math.PI);
-    const nextFov = THREE.MathUtils.lerp(54, 46, u) + peakStretch * 26.0;
-    if (Math.abs(camera.fov - nextFov) > 0.05) {
-      camera.fov = nextFov;
-      camera.updateProjectionMatrix();
-    }
-
-    const blur = Math.sin(smooth01(0.08, 0.90, u) * Math.PI) * 0.65;
+    setCameraFov(THREE.MathUtils.lerp(54, 50, u) + peakStretch * 20.0);
+    const blur = Math.sin(smooth01(0.08, 0.90, u) * Math.PI) * 0.58;
     onDiveStep?.({ motionBlur: blur, u });
+    emitDarkIntro(0.55);
+  }
+
+  function applyLookAt(t01) {
+    const u = THREE.MathUtils.clamp(t01, 0, 1);
+    camera.position.set(...PRESETS.sovereign.pos);
+    camera.rotation.set(THREE.MathUtils.lerp(0.02, 1.10, smooth01(0, 1, u)), 0, 0);
+    setCameraFov(THREE.MathUtils.lerp(50, 58, smooth01(0, 1, u)));
+    onDiveStep?.({ motionBlur: 0.0 });
+    emitDarkIntro(THREE.MathUtils.lerp(0.55, 0.15, smooth01(0, 0.30, u)));
+  }
+
+  function applyIgniteAt(seconds) {
+    const t = THREE.MathUtils.clamp(seconds, 0, IGNITE_DURATION);
+    const lamps = [0, 1, 2, 3].map((index) => smooth01(index * 0.35, index * 0.35 + 0.42, t));
+    let bloomBoost = 0;
+    for (let index = 0; index < 4; index += 1) {
+      const d = (t - (index * 0.35 + 0.18)) / 0.11;
+      bloomBoost += Math.exp(-d * d) * 0.085;
+    }
+    camera.position.set(...PRESETS.sovereign.pos);
+    const settle = smooth01(0.50, IGNITE_DURATION, t);
+    camera.rotation.set(THREE.MathUtils.lerp(1.10, sovereignYP.pitch, settle), 0, 0);
+    setCameraFov(THREE.MathUtils.lerp(58, PRESETS.sovereign.fov, settle));
+    onDiveStep?.({ motionBlur: 0.0 });
+    emitIntro(
+      0.15 + 0.85 * smooth01(0.15, 2.05, t),
+      lamps,
+      smooth01(1.35, 2.05, t),
+      smooth01(0.55, 1.65, t),
+      smooth01(1.80, 2.48, t),
+      Math.min(0.20, bloomBoost)
+    );
   }
 
   function setStage(next) {
@@ -192,11 +221,15 @@ export function createCameraController(
   }
 
   function startMaterializeAndDive() {
+    reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     setStage('materialize');
     matElapsed = 0;
     matFrozen = false;
     diveElapsed = 0;
     diveFrozen = false;
+    lookElapsed = 0;
+    igniteElapsed = 0;
+    reducedElapsed = 0;
     tweenActive = false;
     applyMaterializeAt(0);
   }
@@ -216,6 +249,27 @@ export function createCameraController(
     diveFrozen = false;
     tweenActive = false;
     applyDiveAt(0);
+  }
+
+  function startLook() {
+    lookElapsed = 0;
+    setStage('lookup');
+    applyLookAt(0);
+  }
+
+  function startIgnite() {
+    igniteElapsed = 0;
+    setStage('ignite');
+    applyIgniteAt(0);
+  }
+
+  function startReducedFade() {
+    reducedElapsed = 0;
+    setStage('reduced');
+    camera.position.set(...PRESETS.sovereign.pos);
+    camera.rotation.set(sovereignYP.pitch, sovereignYP.yaw, 0);
+    setCameraFov(PRESETS.sovereign.fov);
+    emitIntro(0.15, [0, 0, 0, 0], 0, 0, 0, 0);
   }
 
   function setDiveTime(sec) {
@@ -244,9 +298,9 @@ export function createCameraController(
     tweenActive = false;
     camera.position.copy(roamPos);
     camera.rotation.set(pitch, yaw, 0);
-    camera.fov = desiredFov;
-    camera.updateProjectionMatrix();
+    setCameraFov(desiredFov);
     onDiveStep?.({ motionBlur: 0.0 });
+    emitIntro(1, [1, 1, 1, 1], 1, 1, 1, 0);
     setStage('explore');
   }
 
@@ -272,8 +326,7 @@ export function createCameraController(
       desiredFov = fov;
       camera.position.copy(roamPos);
       camera.rotation.set(pitch, yaw, 0);
-      camera.fov = desiredFov;
-      camera.updateProjectionMatrix();
+      setCameraFov(desiredFov);
       return;
     }
 
@@ -296,7 +349,6 @@ export function createCameraController(
     return p;
   }
 
-  // Input listeners: Mouse Drag Look + WASD / Arrow Keys Free Roam
   const keys = new Set();
   let dragging = false;
   let downX = 0;
@@ -306,7 +358,15 @@ export function createCameraController(
   let movedDistance = 0;
   let lastWasClick = false;
 
+  function isIntroStage() {
+    return stage === 'materialize' || stage === 'dive' || stage === 'lookup' || stage === 'ignite' || stage === 'reduced';
+  }
+
   domElement.addEventListener('pointerdown', (e) => {
+    if (isIntroStage()) {
+      finishDiveToExplore();
+      return;
+    }
     if (stage !== 'explore') return;
     dragging = true;
     downX = prevX = e.clientX;
@@ -323,7 +383,6 @@ export function createCameraController(
     prevY = e.clientY;
     movedDistance += Math.hypot(dx, dy);
     if (Math.abs(dx) + Math.abs(dy) > 1.5) tweenActive = false;
-
     targetYaw += dx * 0.0038;
     targetPitch = THREE.MathUtils.clamp(targetPitch + dy * 0.0032, -1.22, 1.22);
   });
@@ -337,6 +396,10 @@ export function createCameraController(
 
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isIntroStage()) {
+      finishDiveToExplore();
+      return;
+    }
     keys.add(e.code);
   });
 
@@ -363,7 +426,8 @@ export function createCameraController(
         const m = THREE.MathUtils.clamp(matElapsed / MAT_DURATION, 0, 1);
         applyMaterializeAt(m);
         if (matElapsed >= MAT_DURATION) {
-          startDive();
+          if (reducedMotion) startReducedFade();
+          else startDive();
         }
       }
       return;
@@ -372,12 +436,31 @@ export function createCameraController(
     if (stage === 'dive') {
       if (!diveFrozen) {
         diveElapsed += dt;
-        const u = THREE.MathUtils.clamp(diveElapsed / DIVE_DURATION, 0, 1);
-        applyDiveAt(u);
-        if (diveElapsed >= DIVE_DURATION) {
-          finishDiveToExplore();
-        }
+        applyDiveAt(diveElapsed / DIVE_DURATION);
+        if (diveElapsed >= DIVE_DURATION) startLook();
       }
+      return;
+    }
+
+    if (stage === 'lookup') {
+      lookElapsed += dt;
+      applyLookAt(lookElapsed / LOOK_HOLD_DURATION);
+      if (lookElapsed >= LOOK_HOLD_DURATION) startIgnite();
+      return;
+    }
+
+    if (stage === 'ignite') {
+      igniteElapsed += dt;
+      applyIgniteAt(igniteElapsed);
+      if (igniteElapsed >= IGNITE_DURATION) finishDiveToExplore();
+      return;
+    }
+
+    if (stage === 'reduced') {
+      reducedElapsed += dt;
+      const p = smooth01(0, REDUCED_DURATION, reducedElapsed);
+      emitIntro(0.15 + 0.85 * p, [p, p, p, p], p, p, p, 0);
+      if (reducedElapsed >= REDUCED_DURATION) finishDiveToExplore();
       return;
     }
 
@@ -385,21 +468,15 @@ export function createCameraController(
       tweenElapsed += dt;
       const u = THREE.MathUtils.clamp(tweenElapsed / TWEEN_DURATION, 0, 1);
       const ease = u * u * u * (u * (u * 6 - 15) + 10);
-      const pt = tweenCurve.getPoint(ease);
-      roamPos.copy(pt);
+      roamPos.copy(tweenCurve.getPoint(ease));
       yaw = tweenStartYaw + shortestAngleDiff(tweenEndYaw, tweenStartYaw) * ease;
       pitch = THREE.MathUtils.lerp(tweenStartPitch, tweenEndPitch, ease);
       targetYaw = yaw;
       targetPitch = pitch;
       desiredFov = THREE.MathUtils.lerp(tweenStartFov, tweenEndFov, ease);
-
       camera.position.copy(roamPos);
       camera.rotation.set(pitch, yaw, 0);
-      if (Math.abs(camera.fov - desiredFov) > 0.04) {
-        camera.fov = desiredFov;
-        camera.updateProjectionMatrix();
-      }
-
+      setCameraFov(desiredFov);
       if (u >= 1) {
         tweenActive = false;
         moveState.zone = tweenEndZone;
@@ -413,7 +490,6 @@ export function createCameraController(
     const fwdIn = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0);
     const sideIn = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
     const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 1.55 : 1.0;
-
     const rotDamp = 1 - Math.exp(-dt * 14);
     yaw += shortestAngleDiff(targetYaw, yaw) * rotDamp;
     pitch += (targetPitch - pitch) * rotDamp;
@@ -424,13 +500,11 @@ export function createCameraController(
       const fwdZ = -Math.cos(yaw);
       const rightX = Math.cos(yaw);
       const rightZ = -Math.sin(yaw);
-
       let wishX = fwdX * fwdIn + rightX * sideIn;
       let wishZ = fwdZ * fwdIn + rightZ * sideIn;
       const len = Math.hypot(wishX, wishZ) || 1;
       wishX /= len;
       wishZ /= len;
-
       const speed = 6.2 * sprint;
       const accelDamp = 1 - Math.exp(-dt * 10);
       vel.x += (wishX * speed - vel.x) * accelDamp;
@@ -446,10 +520,8 @@ export function createCameraController(
     roamPos.z += vel.z * dt;
     collider.resolvePosition(roamPos, moveState);
     roamPos.y = Math.min(23.5, moveState.footY + eyeH);
-
     camera.position.copy(roamPos);
     camera.rotation.set(pitch, yaw, 0);
-
     if (Math.abs(camera.fov - desiredFov) > 0.04) {
       camera.fov += (desiredFov - camera.fov) * (1 - Math.exp(-dt * 10));
       camera.updateProjectionMatrix();

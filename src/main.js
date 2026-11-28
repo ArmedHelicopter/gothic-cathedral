@@ -124,6 +124,10 @@ async function init() {
     onDiveStep({ motionBlur }) {
       postfx.setMotionBlur(motionBlur || 0);
     },
+    onIntroStep(introState) {
+      lighting.setIntroVisuals(introState);
+      postfx.setBloomBoost(introState.bloomBoost || 0);
+    },
     onStageChange(stage) {
       ui?.setStage(stage);
       if (stage === 'loading') {
@@ -141,6 +145,8 @@ async function init() {
         lighting.setMaterializeProgress(1.0);
         if (stage === 'explore') {
           postfx.setMotionBlur(0.0);
+          postfx.setBloomBoost(0.0);
+          lighting.setIntroVisuals({ ambient: 1, lamps: [1, 1, 1, 1], corona: 1, pools: 1, painting: 1 });
         }
       }
     },
@@ -290,6 +296,8 @@ async function init() {
       run: () => {
         lighting.buildEnvironment();
         lighting.buildLightsAndRays();
+        lighting.bindComponents({ gothicShell, chandeliers, pedestals });
+        lighting.setIntroVisuals({ ambient: 1, lamps: [1, 1, 1, 1], corona: 1, pools: 1, painting: 1 });
         solidWorldGroup.add(lighting.group);
       },
     },

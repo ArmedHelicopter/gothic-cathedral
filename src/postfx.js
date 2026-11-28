@@ -85,6 +85,7 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
       tBlur: { value: blurB.texture },
       uBloomThreshold: { value: 1.24 },
       uBloomStrength: { value: 0.11 },
+      uBloomBoost: { value: 0 },
       uBloomTint: { value: new THREE.Vector3(1.0, 0.99, 0.96) },
       uVignetteTint: { value: new THREE.Vector3(0.015, 0.035, 0.11) },
       uMotionBlur: { value: 0.0 },
@@ -97,7 +98,8 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
       uniform sampler2D tScene;
       uniform sampler2D tBlur;
       uniform float uBloomThreshold;
-      uniform float uBloomStrength;
+        uniform float uBloomStrength;
+        uniform float uBloomBoost;
       uniform vec3 uBloomTint;
       uniform vec3 uVignetteTint;
       uniform float uMotionBlur;
@@ -126,7 +128,7 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
 
         vec3 blurCol = safeHDR(texture2D(tBlur, vUv).rgb);
         vec3 hi = clamp(blurCol - vec3(uBloomThreshold), vec3(0.0), vec3(14.0));
-        col += hi * uBloomTint * uBloomStrength;
+        col += hi * uBloomTint * (uBloomStrength + uBloomBoost);
 
         float rDist = length((vUv - 0.5) * vec2(1.16, 1.0));
         float vig = smoothstep(0.52, 1.02, rDist);
@@ -148,6 +150,10 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
 
   function setMotionBlur(strength = 0) {
     compositeMat.uniforms.uMotionBlur.value = THREE.MathUtils.clamp(strength, 0, 1);
+  }
+
+  function setBloomBoost(strength = 0) {
+    compositeMat.uniforms.uBloomBoost.value = THREE.MathUtils.clamp(strength, 0, 0.35);
   }
 
   function setSize(w, h, nextDpr = 1) {
@@ -211,6 +217,7 @@ export function createCathedralPostFX(renderer, width, height, dpr = 1) {
     group: new THREE.Group(),
     render,
     setMotionBlur,
+    setBloomBoost,
     setSize,
     getSceneStats: () => lastStats,
     dispose,
