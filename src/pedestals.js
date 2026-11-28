@@ -50,13 +50,15 @@ export function createPedestalsComponent(textures, mats) {
     pinAnchors[proj.id] = [px, PEDESTAL_TOP_Y + 1.24, pz];
     obstacleCircles.push({ x: px, z: pz, r: 0.72 });
 
+    // Clean aligned moulding stack with flush layer bounds (no overlap or gaps):
+    // base plinth 0.00-0.30, panelled shaft 0.30-1.16, cornice 1.16-1.50.
     addMoulding(1.12, 0.12, 1.12, 0.06, px, pz);
     addMoulding(1.00, 0.10, 1.00, 0.17, px, pz);
     addMoulding(0.90, 0.08, 0.90, 0.26, px, pz);
-    addMoulding(0.78, 0.84, 0.78, 0.73, px, pz);
-    addMoulding(0.88, 0.10, 0.88, 1.18, px, pz);
-    addMoulding(1.00, 0.10, 1.00, 1.28, px, pz);
-    addMoulding(1.08, 0.12, 1.08, 1.44, px, pz);
+    addMoulding(0.78, 0.86, 0.78, 0.73, px, pz);
+    addMoulding(0.88, 0.10, 0.88, 1.21, px, pz);
+    addMoulding(1.00, 0.10, 1.00, 1.31, px, pz);
+    addMoulding(1.08, 0.14, 1.08, 1.43, px, pz);
 
     for (let face = 0; face < 4; face += 1) {
       const angle = face * Math.PI * 0.5;
@@ -98,30 +100,27 @@ export function createPedestalsComponent(textures, mats) {
 
     const plaqueTex = textures.plaqueLabel(proj);
     const plaqueMat = new THREE.MeshStandardMaterial({
+      color: '#B08D57',
       map: plaqueTex,
       emissiveMap: plaqueTex,
       emissive: new THREE.Color('#C9A961'),
-      emissiveIntensity: 0.24,
-      roughness: 0.42,
-      metalness: 0.28,
-      envMapIntensity: 0.75,
+      emissiveIntensity: 0.30,
+      roughness: 0.45,
+      metalness: 1.0,
+      envMapIntensity: 1.0,
     });
     const plaque = new THREE.Group();
-    const plaqueBackGeo = new THREE.BoxGeometry(1.04, 0.37, 0.055);
+    const plaqueBackGeo = new THREE.BoxGeometry(1.04, 0.40, 0.045);
     const plaqueBack = new THREE.Mesh(plaqueBackGeo, mats.brassMat);
-    const plaqueFace = new THREE.Mesh(new THREE.PlaneGeometry(0.94, 0.29), plaqueMat);
-    plaqueFace.position.z = 0.030;
+    const plaqueFace = new THREE.Mesh(new THREE.PlaneGeometry(0.96, 0.32), plaqueMat);
+    plaqueFace.position.z = 0.026;
     plaque.add(plaqueBack, plaqueFace);
-    const dirToAxis = new THREE.Vector3(-sign * 0.94, 0, 0.34).normalize();
-    plaque.position.set(px + dirToAxis.x * 0.48, 0.80, pz + dirToAxis.z * 0.48);
-    plaque.lookAt(plaque.position.clone().add(dirToAxis));
-    plaque.rotateX(-0.20);
+    plaque.position.set(px - sign * 0.435, 0.92, pz);
+    plaque.rotation.y = -sign * Math.PI * 0.5;
+    plaque.rotation.x = -0.22;
     plaquesGroup.add(plaque);
     plaque.updateMatrixWorld(true);
     wireSourceGeos.push(plaqueBackGeo.clone().applyMatrix4(plaque.matrixWorld));
-    const bracket = new THREE.BoxGeometry(0.16, 0.20, 0.16);
-    xform(bracket, [px + dirToAxis.x * 0.35, 0.73, pz + dirToAxis.z * 0.35]);
-    brassGeos.push(bracket);
 
     const relicHolder = createProjectIconSculpture(proj.iconKind, mats);
     relicHolder.scale.setScalar(1.14);

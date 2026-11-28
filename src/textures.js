@@ -809,24 +809,34 @@ export function createCathedralTextures(renderer) {
     const H = 256;
     const c = makeCanvas(W, H);
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#0c1833';
+
+    const brass = ctx.createLinearGradient(0, 0, 0, H);
+    brass.addColorStop(0.0, '#C29A63');
+    brass.addColorStop(0.5, '#B08D57');
+    brass.addColorStop(1.0, '#9A7847');
+    ctx.fillStyle = brass;
     ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = '#c4d6f4';
+
+    ctx.strokeStyle = '#7A5C36';
     ctx.lineWidth = 7;
     ctx.strokeRect(8, 8, W - 16, H - 16);
-    ctx.strokeStyle = '#3b5fa6';
+    ctx.strokeStyle = '#8A6B40';
     ctx.lineWidth = 2.5;
     ctx.strokeRect(20, 20, W - 40, H - 40);
 
-    ctx.fillStyle = '#99bbea';
-    ctx.font = '700 32px "JetBrains Mono", Consolas, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(`NO.${project.index} · ${project.lang.toUpperCase()}`, W / 2, 86);
+    const drawEngraved = (label, x, y, font, fill) => {
+      ctx.font = font;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(90, 66, 38, 0.85)';
+      ctx.fillText(label, x, y + 2);
+      ctx.fillStyle = fill;
+      ctx.fillText(label, x, y);
+    };
 
-    ctx.fillStyle = '#dde7fa';
+    drawEngraved(`NO.${project.index} · ${project.lang.toUpperCase()}`, W / 2, 86, '700 32px "JetBrains Mono", Consolas, monospace', '#F7EFDF');
+
     const fontSize = project.name.length > 20 ? 44 : project.name.length > 14 ? 54 : 64;
-    ctx.font = `700 ${fontSize}px Inter, "PingFang SC", system-ui, sans-serif`;
-    ctx.fillText(project.name, W / 2, 180);
+    drawEngraved(project.name, W / 2, 180, `700 ${fontSize}px Inter, "PingFang SC", system-ui, sans-serif`, '#F2EBDD');
 
     return register(`plaque-${project.id}`, c, { wrap: false, pixel: false, mip: true });
   }
