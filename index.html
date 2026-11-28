@@ -718,6 +718,7 @@ var Sn = 517;
 var bn = 518;
 var Tn = 519;
 var wn = 35044;
+var En = 35048;
 var Nn = "300 es";
 var On = 2e3;
 var Fn = 2001;
@@ -7981,14 +7982,92 @@ var Lc = new Ci();
 var Uc = new Ji();
 var Dc = new sr();
 var Nc = new rr();
+var Bc = class extends yi {
+  constructor(t2 = null, e = 1, n = 1, i, r, s, a, o, l = 1003, c2 = 1003, h, u2) {
+    super(null, s, a, o, l, c2, i, r, h, u2), this.isDataTexture = true, this.image = { data: t2, width: e, height: n }, this.generateMipmaps = false, this.flipY = false, this.unpackAlignment = 1;
+  }
+};
 var zc = new sr();
 var kc = new sr();
+var Hc = class extends cs {
+  constructor(t2, e, n, i = 1) {
+    super(t2, e, n), this.isInstancedBufferAttribute = true, this.meshPerAttribute = i;
+  }
+  copy(t2) {
+    return super.copy(t2), this.meshPerAttribute = t2.meshPerAttribute, this;
+  }
+  toJSON() {
+    const t2 = super.toJSON();
+    return t2.meshPerAttribute = this.meshPerAttribute, t2.isInstancedBufferAttribute = true, t2;
+  }
+};
 var Gc = new sr();
 var Wc = new sr();
+var Xc = [];
 var jc = new Li();
 var qc = new sr();
 var Yc = new Bs();
 var Zc = new Ji();
+var Jc = class extends Bs {
+  constructor(t2, e, n) {
+    super(t2, e), this.isInstancedMesh = true, this.instanceMatrix = new Hc(new Float32Array(16 * n), 16), this.instanceColor = null, this.morphTexture = null, this.count = n, this.boundingBox = null, this.boundingSphere = null;
+    for (let t3 = 0; t3 < n; t3++) this.setMatrixAt(t3, qc);
+  }
+  computeBoundingBox() {
+    const t2 = this.geometry, e = this.count;
+    null === this.boundingBox && (this.boundingBox = new Li()), null === t2.boundingBox && t2.computeBoundingBox(), this.boundingBox.makeEmpty();
+    for (let n = 0; n < e; n++) this.getMatrixAt(n, Gc), jc.copy(t2.boundingBox).applyMatrix4(Gc), this.boundingBox.union(jc);
+  }
+  computeBoundingSphere() {
+    const t2 = this.geometry, e = this.count;
+    null === this.boundingSphere && (this.boundingSphere = new Ji()), null === t2.boundingSphere && t2.computeBoundingSphere(), this.boundingSphere.makeEmpty();
+    for (let n = 0; n < e; n++) this.getMatrixAt(n, Gc), Zc.copy(t2.boundingSphere).applyMatrix4(Gc), this.boundingSphere.union(Zc);
+  }
+  copy(t2, e) {
+    return super.copy(t2, e), this.instanceMatrix.copy(t2.instanceMatrix), null !== t2.morphTexture && (this.morphTexture = t2.morphTexture.clone()), null !== t2.instanceColor && (this.instanceColor = t2.instanceColor.clone()), this.count = t2.count, null !== t2.boundingBox && (this.boundingBox = t2.boundingBox.clone()), null !== t2.boundingSphere && (this.boundingSphere = t2.boundingSphere.clone()), this;
+  }
+  getColorAt(t2, e) {
+    e.fromArray(this.instanceColor.array, 3 * t2);
+  }
+  getMatrixAt(t2, e) {
+    e.fromArray(this.instanceMatrix.array, 16 * t2);
+  }
+  getMorphAt(t2, e) {
+    const n = e.morphTargetInfluences, i = this.morphTexture.source.data.data, r = t2 * (n.length + 1) + 1;
+    for (let t3 = 0; t3 < n.length; t3++) n[t3] = i[r + t3];
+  }
+  raycast(t2, e) {
+    const n = this.matrixWorld, i = this.count;
+    if (Yc.geometry = this.geometry, Yc.material = this.material, void 0 !== Yc.material && (null === this.boundingSphere && this.computeBoundingSphere(), Zc.copy(this.boundingSphere), Zc.applyMatrix4(n), false !== t2.ray.intersectsSphere(Zc))) for (let r = 0; r < i; r++) {
+      this.getMatrixAt(r, Gc), Wc.multiplyMatrices(n, Gc), Yc.matrixWorld = Wc, Yc.raycast(t2, Xc);
+      for (let t3 = 0, n2 = Xc.length; t3 < n2; t3++) {
+        const n3 = Xc[t3];
+        n3.instanceId = r, n3.object = this, e.push(n3);
+      }
+      Xc.length = 0;
+    }
+  }
+  setColorAt(t2, e) {
+    null === this.instanceColor && (this.instanceColor = new Hc(new Float32Array(3 * this.instanceMatrix.count).fill(1), 3)), e.toArray(this.instanceColor.array, 3 * t2);
+  }
+  setMatrixAt(t2, e) {
+    e.toArray(this.instanceMatrix.array, 16 * t2);
+  }
+  setMorphAt(t2, e) {
+    const n = e.morphTargetInfluences, i = n.length + 1;
+    null === this.morphTexture && (this.morphTexture = new Bc(new Float32Array(i * this.count), i, this.count, Xt, Lt));
+    const r = this.morphTexture.source.data.data;
+    let s = 0;
+    for (let t3 = 0; t3 < n.length; t3++) s += n[t3];
+    const a = this.geometry.morphTargetsRelative ? 1 : 1 - s, o = i * t2;
+    r[o] = a, r.set(n, o + 1);
+  }
+  updateMorphTargets() {
+  }
+  dispose() {
+    return this.dispatchEvent({ type: "dispose" }), null !== this.morphTexture && (this.morphTexture.dispose(), this.morphTexture = null), this;
+  }
+};
 var th = class {
   constructor() {
     this.index = 0, this.pool = [], this.list = [];
@@ -13943,6 +14022,143 @@ function createPedestalsComponent(textures, mats) {
   };
 }
 
+// src/chandeliers.js
+var FIXTURES = [
+  { z: 10.75, y: 8, radius: 1.25, arms: 10 },
+  { z: 3.25, y: 8, radius: 1.25, arms: 10 },
+  { z: -4.25, y: 8, radius: 1.25, arms: 10 },
+  { z: -11.75, y: 8, radius: 1.25, arms: 10 },
+  { z: -19, y: 10, radius: 0.82, arms: 8 }
+];
+function createChandeliersComponent(mats) {
+  const group = new jl();
+  group.name = "chandeliers";
+  const fixtures = [];
+  const wireSourceGeos = [];
+  const flameGeo = new ha(0.16, 0.3);
+  flameGeo.translate(0, 0.15, 0);
+  FIXTURES.forEach((config, fixtureIndex) => {
+    const brassGeos = [];
+    const goldGeos = [];
+    const candleGeos = [];
+    const flamePositions = [];
+    const scale2 = config.radius / 1.25;
+    const lowerRadius = config.radius * 0.68;
+    const tiers = [
+      { radius: config.radius, y: config.y, arms: config.arms },
+      { radius: lowerRadius, y: config.y - 0.62 * scale2, arms: Math.max(8, config.arms - 2) }
+    ];
+    tiers.forEach((tier, tierIndex) => {
+      const ring = new sd(tier.radius, 0.055 * scale2, 8, 64);
+      xform(ring, [0, tier.y, config.z], [Math.PI / 2, 0, 0]);
+      brassGeos.push(ring);
+      const goldRing = new sd(tier.radius, 0.018 * scale2, 6, 64);
+      xform(goldRing, [0, tier.y + 0.055 * scale2, config.z], [Math.PI / 2, 0, 0]);
+      goldGeos.push(goldRing);
+      for (let arm = 0; arm < tier.arms; arm += 1) {
+        const a = arm / tier.arms * Math.PI * 2 + tierIndex * 0.16;
+        const radial = new Ci(Math.cos(a), 0, Math.sin(a));
+        const start = new Ci(0, tier.y - 0.22 * scale2, config.z).addScaledVector(radial, 0.2 * scale2);
+        const end = new Ci(0, tier.y + 0.02, config.z).addScaledVector(radial, tier.radius);
+        const control = start.clone().lerp(end, 0.55);
+        control.y -= 0.16 * scale2;
+        const curve = new su(start, control, end);
+        brassGeos.push(new od(curve, 10, 0.028 * scale2, 6, false));
+        const cup = new pu(0.085 * scale2, 0.045 * scale2, 0.08 * scale2, 10);
+        xform(cup, [end.x, tier.y + 0.075 * scale2, end.z]);
+        goldGeos.push(cup);
+        const candle = new pu(0.033 * scale2, 0.038 * scale2, 0.3 * scale2, 8);
+        xform(candle, [end.x, tier.y + 0.25 * scale2, end.z]);
+        candleGeos.push(candle);
+        flamePositions.push(new Ci(end.x, tier.y + 0.4 * scale2, end.z));
+      }
+    });
+    const stem = new pu(0.055 * scale2, 0.075 * scale2, 1.3 * scale2, 10);
+    xform(stem, [0, config.y - 0.3 * scale2, config.z]);
+    brassGeos.push(stem);
+    const lowerDrop = new id(0.15 * scale2, 12, 8);
+    xform(lowerDrop, [0, config.y - 1.02 * scale2, config.z], [0, 0, 0], [1, 1.5, 1]);
+    goldGeos.push(lowerDrop);
+    for (const offset of [-0.72, -0.18, 0.28]) {
+      const knop = new id(0.11 * scale2, 10, 8);
+      xform(knop, [0, config.y + offset * scale2, config.z], [0, 0, 0], [1, 0.72, 1]);
+      brassGeos.push(knop);
+    }
+    const chainBottom = config.y + 0.38 * scale2;
+    const chainTop = 24.35;
+    const links = Math.ceil((chainTop - chainBottom) / 0.58);
+    for (let link = 0; link < links; link += 1) {
+      const t2 = links <= 1 ? 0 : link / (links - 1);
+      const geo = new sd(0.082, 0.012, 4, 8);
+      xform(
+        geo,
+        [0, Zn.lerp(chainBottom, chainTop, t2), config.z],
+        [0, link % 2 ? Math.PI / 2 : 0, 0],
+        [1, 1.35, 1]
+      );
+      brassGeos.push(geo);
+    }
+    const coronaMat = mats.brassMat.clone();
+    coronaMat.emissive = new Kr("#FFC98A");
+    coronaMat.emissiveIntensity = 0.12;
+    const brassMesh = new Bs(mergeClean(brassGeos), coronaMat);
+    brassMesh.name = `chandelier-brass-${fixtureIndex}`;
+    const goldMesh = new Bs(mergeClean(goldGeos), mats.paleGoldMat);
+    const candleMesh = new Bs(mergeClean(candleGeos), mats.brightAlabasterMat);
+    const flameMat = mats.candleFlameMat.clone();
+    const flames = new Jc(flameGeo, flameMat, flamePositions.length);
+    flames.instanceMatrix.setUsage(En);
+    flames.frustumCulled = false;
+    flames.renderOrder = 5;
+    group.add(brassMesh, goldMesh, candleMesh, flames);
+    fixtures.push({ config, coronaMat, flameMat, flames, flamePositions });
+    wireSourceGeos.push(brassMesh.geometry.clone(), goldMesh.geometry.clone(), candleMesh.geometry.clone());
+    flamePositions.forEach((position) => {
+      const geo = flameGeo.clone();
+      geo.translate(position.x, position.y, position.z);
+      wireSourceGeos.push(geo);
+    });
+  });
+  const wireframeMesh = buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 6.5, 24.6, 0.52, 0.96);
+  wireframeMesh.name = "chandeliersWireframe";
+  const matrix = new sr();
+  const scale = new Ci(1, 1, 1);
+  function setIllumination(perLampProgress = [1, 1, 1, 1], coronaProgress = 1) {
+    fixtures.forEach((fixture, index) => {
+      const progress = Zn.clamp(index < 4 ? perLampProgress[index] ?? 0 : coronaProgress, 0, 1);
+      fixture.flameMat.uniforms.uIntensity.value = progress;
+      fixture.coronaMat.emissiveIntensity = 0.02 + progress * 0.34;
+      fixture.flames.visible = progress > 2e-3;
+    });
+  }
+  function update(dt2, elapsed, camera) {
+    fixtures.forEach((fixture) => {
+      fixture.flameMat.uniforms.uTime.value = elapsed;
+      if (!fixture.flames.visible) return;
+      fixture.flamePositions.forEach((position, index) => {
+        matrix.compose(position, camera.quaternion, scale);
+        fixture.flames.setMatrixAt(index, matrix);
+      });
+      fixture.flames.instanceMatrix.needsUpdate = true;
+    });
+  }
+  function dispose() {
+    flameGeo.dispose();
+    fixtures.forEach((fixture) => {
+      fixture.coronaMat.dispose();
+      fixture.flameMat.dispose();
+    });
+  }
+  return {
+    group,
+    wireframeMesh,
+    lightPositions: FIXTURES.slice(0, 4).map((fixture) => [0, fixture.y + 0.35, fixture.z]),
+    setIllumination,
+    update,
+    dispose
+  };
+}
+
 // src/lighting.js
 function createLightingComponent(scene, renderer, mats) {
   const group = new jl();
@@ -15282,6 +15498,7 @@ async function init() {
   let spiralStaircase = null;
   let veiledPainting = null;
   let pedestals = null;
+  let chandeliers = null;
   function applyLoadingVisuals(p01) {
     const p2 = Zn.clamp(p01, 0, 1);
     realLoadProgress = p2;
@@ -15391,6 +15608,7 @@ async function init() {
     cameraRig.update(dt2);
     veiledPainting?.update(dt2, elapsed);
     pedestals?.update(dt2, elapsed);
+    chandeliers?.update(dt2, elapsed, camera);
     lighting.update(dt2, elapsed, camera);
     renderAll();
   }
@@ -15447,6 +15665,14 @@ async function init() {
     {
       weight: 8,
       run: () => {
+        chandeliers = createChandeliersComponent(mats);
+        solidWorldGroup.add(chandeliers.group);
+        if (chandeliers.wireframeMesh) wireframeGroup.add(chandeliers.wireframeMesh);
+      }
+    },
+    {
+      weight: 8,
+      run: () => {
         lighting.buildEnvironment();
         lighting.buildLightsAndRays();
         solidWorldGroup.add(lighting.group);
@@ -15487,6 +15713,7 @@ async function init() {
     gothicShell,
     veiledPainting,
     pedestals,
+    chandeliers,
     lighting,
     postfx,
     collider

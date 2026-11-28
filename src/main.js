@@ -7,6 +7,7 @@ import { createFoundationComponent } from './foundation.js';
 import { createGothicShellComponent } from './gothicShell.js';
 import { createVeiledPaintingComponent } from './veiledPainting.js';
 import { createPedestalsComponent } from './pedestals.js';
+import { createChandeliersComponent } from './chandeliers.js';
 import { createLightingComponent } from './lighting.js';
 import { createCathedralPostFX } from './postfx.js';
 import { createInteriorCollider } from './collision.js';
@@ -85,6 +86,7 @@ async function init() {
   let spiralStaircase = null;
   let veiledPainting = null;
   let pedestals = null;
+  let chandeliers = null;
 
   function applyLoadingVisuals(p01) {
     const p = THREE.MathUtils.clamp(p01, 0, 1);
@@ -206,6 +208,7 @@ async function init() {
     cameraRig.update(dt);
     veiledPainting?.update(dt, elapsed);
     pedestals?.update(dt, elapsed);
+    chandeliers?.update(dt, elapsed, camera);
     lighting.update(dt, elapsed, camera);
 
     renderAll();
@@ -266,6 +269,14 @@ async function init() {
     {
       weight: 8,
       run: () => {
+        chandeliers = createChandeliersComponent(mats);
+        solidWorldGroup.add(chandeliers.group);
+        if (chandeliers.wireframeMesh) wireframeGroup.add(chandeliers.wireframeMesh);
+      },
+    },
+    {
+      weight: 8,
+      run: () => {
         lighting.buildEnvironment();
         lighting.buildLightsAndRays();
         solidWorldGroup.add(lighting.group);
@@ -311,6 +322,7 @@ async function init() {
     gothicShell,
     veiledPainting,
     pedestals,
+    chandeliers,
     lighting,
     postfx,
     collider,
