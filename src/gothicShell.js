@@ -502,7 +502,7 @@ export function createGothicShellComponent(mats) {
   wireframeMesh.name = 'perpendicularGothicWireframe';
 
   function setBayIllumination(bayIndex, progress) {
-    const p = THREE.MathUtils.clamp(progress, 0, 1);
+    const p = Number.isFinite(progress) ? THREE.MathUtils.clamp(progress, 0, 1) : 0;
     const visual = bayVisuals[bayIndex];
     if (visual) visual.bossMat.emissiveIntensity = 0.12 + p * 1.65;
     const prefixA = `clerestory--1-${bayIndex}`;

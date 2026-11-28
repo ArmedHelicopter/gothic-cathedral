@@ -293,7 +293,7 @@ export function createLightingComponent(scene, renderer, mats) {
       components.pedestals.setIllumination(state.pools);
     }
     if (components.gothicShell) {
-      const bayProgress = [0, 1, 6, 7].map(() => Math.max(0.04, state.ambient * 0.42));
+      const bayProgress = Array.from({ length: 8 }, () => Math.max(0.04, state.ambient * 0.42));
       bayProgress[2] = Math.max(state.ambient * 0.10, state.lamps[0]);
       bayProgress[3] = Math.max(state.ambient * 0.10, state.lamps[1]);
       bayProgress[4] = Math.max(state.ambient * 0.10, state.lamps[2]);
