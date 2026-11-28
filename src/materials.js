@@ -67,6 +67,7 @@ export function createCathedralMaterials(textures) {
   mats.marbleWhiteMat = standard('#ECE9E3', 0.25, 0.01, 0.9);
   mats.floorTrimMat = standard('#0E1B3D', 0.38, 0.08, 0.65);
   mats.naveInlayMat = standard('#ECE9E3', 0.25, 0.01, 0.9);
+  mats.aisleFloorMat = standard('#E9E1D0', 0.34, 0.01, 0.75);
   mats.wellMedallionMat = standard('#E9E1D0', 0.34, 0.02, 0.8);
   mats.carpetMat = standard('#0E1B3D', 0.92, 0, 0.3);
   mats.shroudMat = standard('#f7f6f2', 0.90, 0, 0.34);
@@ -281,11 +282,14 @@ export function createCathedralMaterials(textures) {
 
   function buildFloorsAndDraperies() {
     const carpetTex = textures.ceruleanCarpetTex('cerulean-carpet-main');
-    const naveInlayMap = textures.naveInlayFloor('nave-inlay-main', [8, 16]);
+    const naveInlayMap = textures.naveInlayFloor('nave-checker-main', [3.833, 7.667]);
+    const aisleMap = textures.aisleSlabFloor('aisle-slab-main', [2, 18]);
     const medallionMap = textures.wellMedallionTex('well-medallion-main');
     const linen = textures.linenCloth('shroud-linen');
     mats.naveInlayMat.map = naveInlayMap;
     mats.naveInlayMat.needsUpdate = true;
+    mats.aisleFloorMat.map = aisleMap;
+    mats.aisleFloorMat.needsUpdate = true;
     mats.wellMedallionMat.map = medallionMap;
     mats.wellMedallionMat.needsUpdate = true;
     mats.carpetMat.map = carpetTex.map;

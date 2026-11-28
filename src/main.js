@@ -243,6 +243,7 @@ async function init() {
       run: () => {
         foundation = createFoundationComponent(mats);
         solidWorldGroup.add(foundation.group);
+        if (foundation.wireframeMesh) wireframeGroup.add(foundation.wireframeMesh);
       },
     },
     {

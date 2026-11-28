@@ -277,56 +277,68 @@ export function createCathedralTextures(renderer) {
     };
   }
 
-  /** Crisp 512x512 inlaid Cosmatesque dark-navy & Carrara veined marble floor tile (rich stone luster, zero neon lines). */
-  function naveInlayFloor(label = 'nave-inlay-floor', repeat = [8, 16]) {
+  function naveInlayFloor(label = 'nave-inlay-floor', repeat = [3.833, 7.667]) {
     const S = 512;
+    const cells = 8;
+    const cell = S / cells;
     const c = makeCanvas(S, S);
     const ctx = c.getContext('2d');
     const rand = mulberry32(404);
-    ctx.fillStyle = '#121f3d';
+    for (let y = 0; y < cells; y += 1) {
+      for (let x = 0; x < cells; x += 1) {
+        const white = (x + y) % 2 === 0;
+        ctx.fillStyle = white ? '#ECE9E3' : '#111316';
+        ctx.fillRect(x * cell, y * cell, cell, cell);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x * cell, y * cell, cell, cell);
+        ctx.clip();
+        for (let v = 0; v < 3; v += 1) {
+          const sx = x * cell + rand() * cell;
+          const sy = y * cell + rand() * cell;
+          ctx.strokeStyle = white ? 'rgba(93,99,105,0.15)' : 'rgba(220,224,224,0.12)';
+          ctx.lineWidth = 0.7 + rand() * 0.9;
+          ctx.beginPath();
+          ctx.moveTo(sx - cell * 0.45, sy);
+          ctx.bezierCurveTo(sx - cell * 0.1, sy - 14, sx + cell * 0.15, sy + 14, sx + cell * 0.55, sy - 5);
+          ctx.stroke();
+        }
+        ctx.restore();
+        ctx.strokeStyle = white ? 'rgba(85,82,75,0.20)' : 'rgba(225,220,205,0.13)';
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(x * cell, y * cell, cell, cell);
+      }
+    }
+    const texture = register(label, c, { repeat, pixel: false, mip: true });
+    texture.center.set(0.5, 0.5);
+    texture.rotation = Math.PI * 0.25;
+    return texture;
+  }
+
+  function aisleSlabFloor(label = 'aisle-slab-floor', repeat = [2, 18]) {
+    const S = 512;
+    const c = makeCanvas(S, S);
+    const ctx = c.getContext('2d');
+    const rand = mulberry32(707);
+    ctx.fillStyle = '#c9c3b7';
     ctx.fillRect(0, 0, S, S);
-    for (let i = 0; i < 9500; i++) {
-      px(ctx, rand() * S, rand() * S, 1.5, 1.5, rand() > 0.5 ? '#1a2c54' : '#0e1832');
+    const rowH = 64;
+    const slabW = 128;
+    for (let row = 0; row < S / rowH; row += 1) {
+      const offset = row % 2 ? -slabW * 0.5 : 0;
+      for (let x = offset; x < S; x += slabW) {
+        const shade = 232 + Math.floor(rand() * 10);
+        ctx.fillStyle = `rgb(${shade},${shade - 3},${shade - 10})`;
+        ctx.fillRect(x + 1.5, row * rowH + 1.5, slabW - 3, rowH - 3);
+        ctx.strokeStyle = 'rgba(110,108,102,0.13)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        const y = row * rowH + rand() * rowH;
+        ctx.moveTo(x + 8, y);
+        ctx.bezierCurveTo(x + 38, y - 8, x + 78, y + 9, x + slabW - 8, y - 2);
+        ctx.stroke();
+      }
     }
-    // Soft marble floor veins
-    for (let k = 0; k < 12; k++) {
-      ctx.strokeStyle = 'rgba(148, 176, 224, 0.14)';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      const y0 = rand() * S;
-      ctx.moveTo(0, y0);
-      ctx.bezierCurveTo(S * 0.35, y0 + (rand() - 0.5) * 70, S * 0.65, y0 + (rand() - 0.5) * 70, S, y0);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = 'rgba(72, 102, 162, 0.42)';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(8, 8, S - 16, S - 16);
-
-    ctx.strokeStyle = 'rgba(196, 214, 245, 0.34)';
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(28, 28, S - 56, S - 56);
-
-    ctx.fillStyle = '#182b5c';
-    ctx.beginPath();
-    ctx.moveTo(S / 2, 68);
-    ctx.lineTo(S - 68, S / 2);
-    ctx.lineTo(S / 2, S - 68);
-    ctx.lineTo(68, S / 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(138, 174, 232, 0.46)';
-    ctx.lineWidth = 3.5;
-    ctx.stroke();
-
-    ctx.fillStyle = '#d4e0f6';
-    ctx.beginPath();
-    ctx.moveTo(S / 2, S / 2 - 26);
-    ctx.lineTo(S / 2 + 26, S / 2);
-    ctx.lineTo(S / 2, S / 2 + 26);
-    ctx.lineTo(S / 2 - 26, S / 2);
-    ctx.closePath();
-    ctx.fill();
-
     return register(label, c, { repeat, pixel: false, mip: true });
   }
 
@@ -1094,6 +1106,7 @@ export function createCathedralTextures(renderer) {
     navyAshlar,
     ceruleanCarpetTex,
     naveInlayFloor,
+    aisleSlabFloor,
     wellMedallionTex,
     linenCloth,
     unfinishedCanvasTex,

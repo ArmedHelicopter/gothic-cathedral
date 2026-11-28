@@ -10850,50 +10850,67 @@ function createCathedralTextures(renderer) {
       bumpMap: register(`${label}-bump`, bump, { srgb: false, repeat: [1, 8], pixel: false, mip: true })
     };
   }
-  function naveInlayFloor(label = "nave-inlay-floor", repeat = [8, 16]) {
+  function naveInlayFloor(label = "nave-inlay-floor", repeat = [3.833, 7.667]) {
     const S2 = 512;
+    const cells = 8;
+    const cell = S2 / cells;
     const c2 = makeCanvas(S2, S2);
     const ctx = c2.getContext("2d");
     const rand = mulberry32(404);
-    ctx.fillStyle = "#121f3d";
+    for (let y2 = 0; y2 < cells; y2 += 1) {
+      for (let x = 0; x < cells; x += 1) {
+        const white = (x + y2) % 2 === 0;
+        ctx.fillStyle = white ? "#ECE9E3" : "#111316";
+        ctx.fillRect(x * cell, y2 * cell, cell, cell);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x * cell, y2 * cell, cell, cell);
+        ctx.clip();
+        for (let v = 0; v < 3; v += 1) {
+          const sx = x * cell + rand() * cell;
+          const sy = y2 * cell + rand() * cell;
+          ctx.strokeStyle = white ? "rgba(93,99,105,0.15)" : "rgba(220,224,224,0.12)";
+          ctx.lineWidth = 0.7 + rand() * 0.9;
+          ctx.beginPath();
+          ctx.moveTo(sx - cell * 0.45, sy);
+          ctx.bezierCurveTo(sx - cell * 0.1, sy - 14, sx + cell * 0.15, sy + 14, sx + cell * 0.55, sy - 5);
+          ctx.stroke();
+        }
+        ctx.restore();
+        ctx.strokeStyle = white ? "rgba(85,82,75,0.20)" : "rgba(225,220,205,0.13)";
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(x * cell, y2 * cell, cell, cell);
+      }
+    }
+    const texture = register(label, c2, { repeat, pixel: false, mip: true });
+    texture.center.set(0.5, 0.5);
+    texture.rotation = Math.PI * 0.25;
+    return texture;
+  }
+  function aisleSlabFloor(label = "aisle-slab-floor", repeat = [2, 18]) {
+    const S2 = 512;
+    const c2 = makeCanvas(S2, S2);
+    const ctx = c2.getContext("2d");
+    const rand = mulberry32(707);
+    ctx.fillStyle = "#c9c3b7";
     ctx.fillRect(0, 0, S2, S2);
-    for (let i = 0; i < 9500; i++) {
-      px(ctx, rand() * S2, rand() * S2, 1.5, 1.5, rand() > 0.5 ? "#1a2c54" : "#0e1832");
+    const rowH = 64;
+    const slabW = 128;
+    for (let row = 0; row < S2 / rowH; row += 1) {
+      const offset = row % 2 ? -slabW * 0.5 : 0;
+      for (let x = offset; x < S2; x += slabW) {
+        const shade = 232 + Math.floor(rand() * 10);
+        ctx.fillStyle = `rgb(${shade},${shade - 3},${shade - 10})`;
+        ctx.fillRect(x + 1.5, row * rowH + 1.5, slabW - 3, rowH - 3);
+        ctx.strokeStyle = "rgba(110,108,102,0.13)";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        const y2 = row * rowH + rand() * rowH;
+        ctx.moveTo(x + 8, y2);
+        ctx.bezierCurveTo(x + 38, y2 - 8, x + 78, y2 + 9, x + slabW - 8, y2 - 2);
+        ctx.stroke();
+      }
     }
-    for (let k2 = 0; k2 < 12; k2++) {
-      ctx.strokeStyle = "rgba(148, 176, 224, 0.14)";
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      const y0 = rand() * S2;
-      ctx.moveTo(0, y0);
-      ctx.bezierCurveTo(S2 * 0.35, y0 + (rand() - 0.5) * 70, S2 * 0.65, y0 + (rand() - 0.5) * 70, S2, y0);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = "rgba(72, 102, 162, 0.42)";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(8, 8, S2 - 16, S2 - 16);
-    ctx.strokeStyle = "rgba(196, 214, 245, 0.34)";
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(28, 28, S2 - 56, S2 - 56);
-    ctx.fillStyle = "#182b5c";
-    ctx.beginPath();
-    ctx.moveTo(S2 / 2, 68);
-    ctx.lineTo(S2 - 68, S2 / 2);
-    ctx.lineTo(S2 / 2, S2 - 68);
-    ctx.lineTo(68, S2 / 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(138, 174, 232, 0.46)";
-    ctx.lineWidth = 3.5;
-    ctx.stroke();
-    ctx.fillStyle = "#d4e0f6";
-    ctx.beginPath();
-    ctx.moveTo(S2 / 2, S2 / 2 - 26);
-    ctx.lineTo(S2 / 2 + 26, S2 / 2);
-    ctx.lineTo(S2 / 2, S2 / 2 + 26);
-    ctx.lineTo(S2 / 2 - 26, S2 / 2);
-    ctx.closePath();
-    ctx.fill();
     return register(label, c2, { repeat, pixel: false, mip: true });
   }
   function wellMedallionTex(label = "well-medallion") {
@@ -11573,6 +11590,7 @@ function createCathedralTextures(renderer) {
     navyAshlar,
     ceruleanCarpetTex,
     naveInlayFloor,
+    aisleSlabFloor,
     wellMedallionTex,
     linenCloth,
     unfinishedCanvasTex,
@@ -11652,6 +11670,7 @@ function createCathedralMaterials(textures) {
   mats.marbleWhiteMat = standard("#ECE9E3", 0.25, 0.01, 0.9);
   mats.floorTrimMat = standard("#0E1B3D", 0.38, 0.08, 0.65);
   mats.naveInlayMat = standard("#ECE9E3", 0.25, 0.01, 0.9);
+  mats.aisleFloorMat = standard("#E9E1D0", 0.34, 0.01, 0.75);
   mats.wellMedallionMat = standard("#E9E1D0", 0.34, 0.02, 0.8);
   mats.carpetMat = standard("#0E1B3D", 0.92, 0, 0.3);
   mats.shroudMat = standard("#f7f6f2", 0.9, 0, 0.34);
@@ -11855,11 +11874,14 @@ function createCathedralMaterials(textures) {
   }
   function buildFloorsAndDraperies() {
     const carpetTex = textures.ceruleanCarpetTex("cerulean-carpet-main");
-    const naveInlayMap = textures.naveInlayFloor("nave-inlay-main", [8, 16]);
+    const naveInlayMap = textures.naveInlayFloor("nave-checker-main", [3.833, 7.667]);
+    const aisleMap = textures.aisleSlabFloor("aisle-slab-main", [2, 18]);
     const medallionMap = textures.wellMedallionTex("well-medallion-main");
     const linen = textures.linenCloth("shroud-linen");
     mats.naveInlayMat.map = naveInlayMap;
     mats.naveInlayMat.needsUpdate = true;
+    mats.aisleFloorMat.map = aisleMap;
+    mats.aisleFloorMat.needsUpdate = true;
     mats.wellMedallionMat.map = medallionMap;
     mats.wellMedallionMat.needsUpdate = true;
     mats.carpetMat.map = carpetTex.map;
@@ -12489,25 +12511,52 @@ function createFoundationComponent(mats) {
   const group = new jl();
   group.name = "foundation";
   const floorGroup = new jl();
-  const carpetGroup = new jl();
   const daisGroup = new jl();
   const mezzGroup = new jl();
-  group.add(floorGroup, carpetGroup, daisGroup, mezzGroup);
-  const naveFloorGeo = new ha(27.6, 55.2);
+  group.add(floorGroup, daisGroup, mezzGroup);
+  const wireSourceGeos = [];
+  const naveFloorGeo = new ha(18.4, 55.2);
   const naveFloor = new Bs(naveFloorGeo, mats.naveInlayMat);
   naveFloor.rotation.x = -Math.PI / 2;
   naveFloor.position.set(0, 0, 1.2);
   naveFloor.receiveShadow = true;
   floorGroup.add(naveFloor);
-  const floorTrimGeos = [];
-  for (const bx of [-4.2, 4.2, -9.2, 9.2]) {
-    const band = new ks(0.28, 0.016, 48);
-    xform(band, [bx, 8e-3, 2]);
-    floorTrimGeos.push(band);
+  wireSourceGeos.push(naveFloorGeo.clone().rotateX(-Math.PI / 2).translate(0, 0, 1.2));
+  const aisleGeos = [];
+  for (const side of [-1, 1]) {
+    const geo = new ha(4.4, 55.2);
+    xform(geo, [side * 11.4, 2e-3, 1.2], [-Math.PI / 2, 0, 0]);
+    aisleGeos.push(geo);
   }
-  const floorTrimMesh = new Bs(mergeClean(floorTrimGeos), mats.floorTrimMat);
-  floorTrimMesh.receiveShadow = true;
-  floorGroup.add(floorTrimMesh);
+  const aisleGeo = mergeClean(aisleGeos);
+  const aisleMesh = new Bs(aisleGeo, mats.aisleFloorMat);
+  aisleMesh.receiveShadow = true;
+  floorGroup.add(aisleMesh);
+  wireSourceGeos.push(aisleGeo.clone());
+  const bandGeos = [];
+  for (const bx of [-7.6, 7.6]) {
+    const band = new ks(0.25, 0.018, 52.8);
+    xform(band, [bx, 0.012, 0.6]);
+    bandGeos.push(band);
+  }
+  const bandGeo = mergeClean(bandGeos);
+  const bandMesh = new Bs(bandGeo, mats.floorTrimMat);
+  bandMesh.receiveShadow = true;
+  floorGroup.add(bandMesh);
+  wireSourceGeos.push(bandGeo.clone());
+  const ringGeos = [];
+  for (const x of [-5.6, 5.6]) {
+    for (const z2 of [14.5, 7, -0.5, -8, -15.5]) {
+      const ring = new ed(0.97, 1.1, 64);
+      xform(ring, [x, 0.026, z2], [-Math.PI / 2, 0, 0]);
+      ringGeos.push(ring);
+    }
+  }
+  const ringGeo = mergeClean(ringGeos);
+  const ringMesh = new Bs(ringGeo, mats.navyStoneMat);
+  ringMesh.receiveShadow = true;
+  floorGroup.add(ringMesh);
+  wireSourceGeos.push(ringGeo.clone());
   const reflRT = new bi(512, 384, {
     minFilter: Mt,
     magFilter: Mt,
@@ -12521,8 +12570,8 @@ function createFoundationComponent(mats) {
     uniforms: {
       tRefl: { value: reflRT.texture },
       uTexMatrix: { value: texMatrix },
-      uReflStrength: { value: 0.16 },
-      uTint: { value: new Kr("#050c20") }
+      uReflStrength: { value: 0.12 },
+      uTint: { value: new Kr("#0B1430") }
     },
     vertexShader: `
       uniform mat4 uTexMatrix;
@@ -12546,8 +12595,7 @@ function createFoundationComponent(mats) {
         vec3 refl = texture2D(tRefl, clamp(uv, 0.002, 0.998)).rgb;
         float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x)
                        * smoothstep(0.0, 0.05, vUv.y) * smoothstep(1.0, 0.95, vUv.y);
-        vec3 col = mix(uTint, refl, 0.76);
-        gl_FragColor = vec4(col, uReflStrength * edgeFade);
+        gl_FragColor = vec4(mix(uTint, refl, 0.76), uReflStrength * edgeFade);
       }
     `
   });
@@ -12557,70 +12605,35 @@ function createFoundationComponent(mats) {
   mirrorMesh.position.set(0, 0.012, 1.2);
   mirrorMesh.renderOrder = 1;
   floorGroup.add(mirrorMesh);
-  const CARPET_W = 3.2;
-  const CARPET_START_Z = 12.6;
-  const DAIS_FRONT_Z = -17;
-  const flatLen = CARPET_START_Z - DAIS_FRONT_Z;
-  const flatMidZ = (CARPET_START_Z + DAIS_FRONT_Z) * 0.5;
-  const carpetFloorMesh = new Bs(new ks(CARPET_W, 0.03, flatLen), mats.carpetMat);
-  carpetFloorMesh.position.set(0, 0.024, flatMidZ);
-  carpetFloorMesh.receiveShadow = true;
-  carpetFloorMesh.renderOrder = 2;
-  carpetGroup.add(carpetFloorMesh);
-  const silverCarpetGeos = [];
-  for (const cx of [-CARPET_W * 0.5 - 0.02, CARPET_W * 0.5 + 0.02]) {
-    const edge = new ks(0.036, 0.034, flatLen);
-    xform(edge, [cx, 0.026, flatMidZ]);
-    silverCarpetGeos.push(edge);
-  }
-  const thresholdBar = new ks(CARPET_W + 0.06, 0.036, 0.06);
-  xform(thresholdBar, [0, 0.028, CARPET_START_Z]);
-  silverCarpetGeos.push(thresholdBar);
   const daisWhiteGeos = [];
-  const daisObsidianGeos = [];
-  const TIERS = 5;
-  const TIER_H = 0.23;
-  for (let i = 0; i < TIERS; i++) {
-    const w2 = 11.4 - i * 0.85;
-    const frontZ = -17 - i * 0.65;
-    const backZ = -24.8;
-    const depth = Math.abs(backZ - frontZ);
-    const centerZ = (frontZ + backZ) * 0.5;
-    const bottomY = i * TIER_H;
-    const centerY = bottomY + TIER_H * 0.5;
-    const riser = new ks(w2, TIER_H, depth);
-    xform(riser, [0, centerY, centerZ]);
-    applyWorldPlanarUVs(riser, 0.3, 0.3);
-    daisWhiteGeos.push(riser);
-    const trim = new ks(w2 + 0.06, 0.036, 0.07);
-    xform(trim, [0, bottomY + TIER_H - 0.014, frontZ + 0.02]);
-    daisObsidianGeos.push(trim);
-    const cRiser = new Bs(new ks(CARPET_W, TIER_H + 0.02, 0.032), mats.carpetMat);
-    cRiser.position.set(0, centerY + 0.01, frontZ + 0.014);
-    cRiser.receiveShadow = true;
-    cRiser.renderOrder = 2;
-    carpetGroup.add(cRiser);
-    const rod = new pu(0.024, 0.024, CARPET_W + 0.1, 10);
-    xform(rod, [0, bottomY + 0.024, frontZ + 0.032], [0, 0, Math.PI / 2]);
-    silverCarpetGeos.push(rod);
-    const nextZ = i < TIERS - 1 ? -17 - (i + 1) * 0.65 : -23;
-    const treadLen = Math.abs(nextZ - frontZ) + 0.04;
-    const cTread = new Bs(new ks(CARPET_W, 0.03, treadLen), mats.carpetMat);
-    cTread.position.set(0, bottomY + TIER_H + 0.016, (frontZ + nextZ) * 0.5);
-    cTread.receiveShadow = true;
-    cTread.renderOrder = 2;
-    carpetGroup.add(cTread);
+  const daisGoldGeos = [];
+  const dais = new ks(11.4, 1.15, 7.8);
+  xform(dais, [0, 0.575, -20.9]);
+  applyWorldPlanarUVs(dais, 0.3, 0.3);
+  daisWhiteGeos.push(dais);
+  for (const x of [-5.35, 5.35]) {
+    const line = new ks(0.035, 0.014, 7.35);
+    xform(line, [x, 1.158, -20.9]);
+    daisGoldGeos.push(line);
   }
-  carpetGroup.add(new Bs(mergeClean(silverCarpetGeos), mats.silverTrimMat));
-  const daisWhiteMesh = new Bs(mergeClean(daisWhiteGeos), mats.whiteMarbleMat);
+  for (const z2 of [-17.25, -20.9, -24.55]) {
+    const line = new ks(10.72, 0.014, 0.035);
+    xform(line, [0, 1.158, z2]);
+    daisGoldGeos.push(line);
+  }
+  const frontInlay = new ks(11.44, 0.035, 0.055);
+  xform(frontInlay, [0, 1.11, -16.98]);
+  daisGoldGeos.push(frontInlay);
+  const daisWhiteGeo = mergeClean(daisWhiteGeos);
+  const daisWhiteMesh = new Bs(daisWhiteGeo, mats.marbleWhiteMat);
   daisWhiteMesh.castShadow = true;
   daisWhiteMesh.receiveShadow = true;
-  const daisTrimMesh = new Bs(mergeClean(daisObsidianGeos), mats.floorTrimMat);
-  daisTrimMesh.receiveShadow = true;
-  daisGroup.add(daisWhiteMesh, daisTrimMesh);
+  const daisGoldGeo = mergeClean(daisGoldGeos);
+  const daisGoldMesh = new Bs(daisGoldGeo, mats.paleGoldMat);
+  daisGroup.add(daisWhiteMesh, daisGoldMesh);
+  wireSourceGeos.push(daisWhiteGeo.clone(), daisGoldGeo.clone());
   const mezzWhiteGeos = [];
-  const mezzObsGeos = [];
-  const mezzSilverGeos = [];
+  const mezzGoldGeos = [];
   const MEZZ_Y = STAIR_CONFIG.mezzY;
   const SLAB_THICK = 0.52;
   const mezzShape = new Su();
@@ -12637,35 +12650,6 @@ function createFoundationComponent(mats) {
   mainDeckGeo.translate(0, MEZZ_Y, 0);
   applyWorldPlanarUVs(mainDeckGeo, 0.22, 0.22);
   mezzWhiteGeos.push(mainDeckGeo);
-  for (const side of [-1, 1]) {
-    const triSlab = new ks(4.2, SLAB_THICK, 26.8);
-    xform(triSlab, [side * 11.5, MEZZ_Y - SLAB_THICK * 0.5, -2.6]);
-    applyWorldPlanarUVs(triSlab, 0.24, 0.24);
-    mezzWhiteGeos.push(triSlab);
-    const fascia = new ks(0.3, 0.56, 26.8);
-    xform(fascia, [side * 9.48, MEZZ_Y - 0.28, -2.6]);
-    applyWorldPlanarUVs(fascia, 0.35, 0.35);
-    mezzWhiteGeos.push(fascia);
-    const triPlinth = new ks(0.24, 0.14, 26.8);
-    xform(triPlinth, [side * 9.55, MEZZ_Y + 0.07, -2.6]);
-    mezzWhiteGeos.push(triPlinth);
-    const triRail = new ks(0.22, 0.11, 26.8);
-    xform(triRail, [side * 9.55, MEZZ_Y + 0.96, -2.6]);
-    mezzWhiteGeos.push(triRail);
-    const triSilver = new ks(0.08, 0.04, 26.8);
-    xform(triSilver, [side * 9.55, MEZZ_Y + 1.03, -2.6]);
-    mezzSilverGeos.push(triSilver);
-    for (let bz = -15.4; bz <= 10.2; bz += 0.58) {
-      const bal = new pu(0.052, 0.064, 0.78, 10);
-      xform(bal, [side * 9.55, MEZZ_Y + 0.52, bz]);
-      mezzWhiteGeos.push(bal);
-      if (bz < 9.7) {
-        const arc = new sd(0.26, 0.036, 8, 12, Math.PI);
-        xform(arc, [side * 9.55, MEZZ_Y + 0.68, bz + 0.29], [0, Math.PI / 2, 0]);
-        mezzWhiteGeos.push(arc);
-      }
-    }
-  }
   const overlookFascia = new ks(19.2, 0.52, 0.34);
   xform(overlookFascia, [0, MEZZ_Y - 0.26, 10.85]);
   mezzWhiteGeos.push(overlookFascia);
@@ -12675,33 +12659,30 @@ function createFoundationComponent(mats) {
   const overlookRail = new ks(19.2, 0.11, 0.24);
   xform(overlookRail, [0, MEZZ_Y + 0.96, 10.9]);
   mezzWhiteGeos.push(overlookRail);
-  const overlookSilver = new ks(19.2, 0.04, 0.1);
-  xform(overlookSilver, [0, MEZZ_Y + 1.03, 10.9]);
-  mezzSilverGeos.push(overlookSilver);
-  for (let bx = -9; bx <= 9; bx += 0.5) {
-    if (Math.abs(Math.abs(bx) - 2.5) < 0.08 || Math.abs(Math.abs(bx) - 6) < 0.08 || Math.abs(Math.abs(bx) - 9) < 0.08) {
-      const pier = new ks(0.26, 1.02, 0.28);
-      xform(pier, [bx, MEZZ_Y + 0.51, 10.9]);
-      mezzWhiteGeos.push(pier);
-    } else {
-      const bal = new pu(0.05, 0.062, 0.78, 10);
-      xform(bal, [bx, MEZZ_Y + 0.52, 10.9]);
-      mezzWhiteGeos.push(bal);
-      if (bx < 8.6) {
-        const arc = new sd(0.22, 0.034, 8, 12, Math.PI);
-        xform(arc, [bx + 0.25, MEZZ_Y + 0.68, 10.9]);
-        mezzWhiteGeos.push(arc);
-      }
+  const overlookGold = new ks(19.2, 0.045, 0.28);
+  xform(overlookGold, [0, MEZZ_Y + 1.04, 10.9]);
+  mezzGoldGeos.push(overlookGold);
+  for (let bx = -9; bx <= 9.001; bx += 0.5) {
+    const major = Math.abs(Math.abs(bx) - 2.5) < 0.08 || Math.abs(Math.abs(bx) - 6) < 0.08 || Math.abs(bx) > 8.9;
+    const bal = major ? new ks(0.26, 1.02, 0.28) : new pu(0.05, 0.062, 0.78, 10);
+    xform(bal, [bx, MEZZ_Y + (major ? 0.51 : 0.52), 10.9]);
+    mezzWhiteGeos.push(bal);
+    if (!major && bx < 8.6) {
+      const arc = new sd(0.22, 0.034, 8, 12, Math.PI);
+      xform(arc, [bx + 0.25, MEZZ_Y + 0.68, 10.9]);
+      mezzWhiteGeos.push(arc);
     }
   }
-  const mezzWhiteMesh = new Bs(mergeClean(mezzWhiteGeos), mats.whiteMarbleMat);
+  const mezzWhiteGeo = mergeClean(mezzWhiteGeos);
+  const mezzGoldGeo = mergeClean(mezzGoldGeos);
+  const mezzWhiteMesh = new Bs(mezzWhiteGeo, mats.whiteMarbleMat);
   mezzWhiteMesh.castShadow = true;
   mezzWhiteMesh.receiveShadow = true;
-  const mezzObsMesh = new Bs(mergeClean(mezzObsGeos), mats.obsidianMat);
-  mezzObsMesh.castShadow = true;
-  mezzObsMesh.receiveShadow = true;
-  const mezzSilMesh = new Bs(mergeClean(mezzSilverGeos), mats.silverTrimMat);
-  mezzGroup.add(mezzWhiteMesh, mezzObsMesh, mezzSilMesh);
+  const mezzGoldMesh = new Bs(mezzGoldGeo, mats.paleGoldMat);
+  mezzGroup.add(mezzWhiteMesh, mezzGoldMesh);
+  wireSourceGeos.push(mezzWhiteGeo.clone(), mezzGoldGeo.clone());
+  const wireframeMesh = buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 0, 10.4, 0.05, 0.42);
+  wireframeMesh.name = "foundationWireframe";
   function updateReflection(renderer, scene, camera) {
     mirrorMesh.visible = false;
     const planeY = 0.012;
@@ -12757,7 +12738,7 @@ function createFoundationComponent(mats) {
     mirrorGeo.dispose();
     naveFloorGeo.dispose();
   }
-  return { group, update, updateReflection, dispose };
+  return { group, wireframeMesh, update, updateReflection, dispose };
 }
 
 // src/gothicShell.js
@@ -15418,6 +15399,7 @@ async function init() {
       run: () => {
         foundation = createFoundationComponent(mats);
         solidWorldGroup.add(foundation.group);
+        if (foundation.wireframeMesh) wireframeGroup.add(foundation.wireframeMesh);
       }
     },
     {
