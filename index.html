@@ -12508,6 +12508,25 @@ function createSpiralStaircaseComponent(mats) {
   const topRingSilver = new od(topRingCurve, 56, 0.036, 8, false);
   topRingSilver.translate(0, 0.055, 0);
   silverGeos.push(topRingSilver);
+  for (const gateAngle of [0.21 * Math.PI, 0.37 * Math.PI]) {
+    const inner = new Ci(
+      CX + Math.cos(gateAngle) * (rOuter - 0.1),
+      mezzY + 1.04,
+      CZ + Math.sin(gateAngle) * (rOuter - 0.1)
+    );
+    const outer = new Ci(
+      CX + Math.cos(gateAngle) * (rArcade + 0.12),
+      mezzY + 1.04,
+      CZ + Math.sin(gateAngle) * (rArcade + 0.12)
+    );
+    alabasterGeos.push(new od(new iu(inner, outer), 4, 0.085, 10, false));
+    const post = new pu(0.09, 0.11, 1.04, 10);
+    xform(post, [outer.x, mezzY + 0.52, outer.z]);
+    alabasterGeos.push(post);
+    const cap = new id(0.11, 10, 8);
+    xform(cap, [outer.x, mezzY + 1.08, outer.z]);
+    silverGeos.push(cap);
+  }
   const whiteMerged = mergeClean(whiteGeos);
   const alaMerged = mergeClean(alabasterGeos);
   const obsMerged = mergeClean(trimObsGeos);
@@ -12746,16 +12765,33 @@ function createFoundationComponent(mats) {
   const overlookGold = new ks(19.2, 0.045, 0.28);
   xform(overlookGold, [0, MEZZ_Y + 1.04, 10.9]);
   mezzGoldGeos.push(overlookGold);
-  for (let bx = -9; bx <= 9.001; bx += 0.5) {
-    const major = Math.abs(Math.abs(bx) - 2.5) < 0.08 || Math.abs(Math.abs(bx) - 6) < 0.08 || Math.abs(bx) > 8.9;
-    const bal = major ? new ks(0.26, 1.02, 0.28) : new pu(0.05, 0.062, 0.78, 10);
-    xform(bal, [bx, MEZZ_Y + (major ? 0.51 : 0.52), 10.9]);
-    mezzWhiteGeos.push(bal);
-    if (!major && bx < 8.6) {
-      const arc = new sd(0.22, 0.034, 8, 12, Math.PI);
-      xform(arc, [bx + 0.25, MEZZ_Y + 0.68, 10.9]);
-      mezzWhiteGeos.push(arc);
+  for (let panel = 0; panel < 16; panel += 1) {
+    const centerX = -9 + panel * 1.2;
+    const shape = new Su();
+    shape.moveTo(-0.57, 0);
+    shape.lineTo(0.57, 0);
+    shape.lineTo(0.57, 0.82);
+    shape.lineTo(-0.57, 0.82);
+    shape.closePath();
+    for (const offset of [-0.25, 0.25]) {
+      const hole = new cu();
+      hole.moveTo(offset - 0.17, 0.09);
+      hole.lineTo(offset - 0.17, 0.43);
+      hole.quadraticCurveTo(offset - 0.17, 0.58, offset, 0.7);
+      hole.quadraticCurveTo(offset + 0.17, 0.58, offset + 0.17, 0.43);
+      hole.lineTo(offset + 0.17, 0.09);
+      hole.closePath();
+      shape.holes.push(hole);
     }
+    const geo = new Ku(shape, { depth: 0.12, bevelEnabled: false, curveSegments: 8 });
+    geo.translate(centerX, MEZZ_Y + 0.11, 10.84);
+    applyWorldPlanarUVs(geo, 0.45, 0.45);
+    mezzWhiteGeos.push(geo);
+  }
+  for (let post = 0; post <= 16; post += 1) {
+    const geo = new ks(post % 4 === 0 ? 0.16 : 0.09, 0.92, 0.2);
+    xform(geo, [-9.6 + post * 1.2, MEZZ_Y + 0.52, 10.9]);
+    mezzWhiteGeos.push(geo);
   }
   const mezzWhiteGeo = mergeClean(mezzWhiteGeos);
   const mezzGoldGeo = mergeClean(mezzGoldGeos);
@@ -14159,6 +14195,102 @@ function createChandeliersComponent(mats) {
   };
 }
 
+// src/organ.js
+function createOrganComponent(mats) {
+  const group = new jl();
+  group.name = "organ";
+  const ivoryGeos = [];
+  const goldGeos = [];
+  const tinGeos = [];
+  const navyGeos = [];
+  const mezzY = 9.2;
+  function box2(bucket, size, position) {
+    const geo = new ks(...size);
+    xform(geo, position);
+    applyWorldPlanarUVs(geo, 0.45, 0.45);
+    bucket.push(geo);
+  }
+  for (const side of [-1, 1]) {
+    const centerX = side * 6.4;
+    box2(navyGeos, [4.2, 3.9, 0.34], [centerX, mezzY + 2.35, 27.48]);
+    box2(ivoryGeos, [4.35, 0.92, 1.1], [centerX, mezzY + 0.46, 27.02]);
+    box2(ivoryGeos, [4.48, 0.16, 1.18], [centerX, mezzY + 0.98, 27.02]);
+    box2(ivoryGeos, [4.42, 0.18, 1.1], [centerX, 13.76, 27.02]);
+    box2(goldGeos, [4.5, 0.055, 1.14], [centerX, 13.88, 27.02]);
+    for (const edge of [-1, 1]) {
+      const x = centerX + edge * 2.02;
+      const column = new pu(0.13, 0.16, 3.7, 12);
+      xform(column, [x, 11.66, 26.54]);
+      ivoryGeos.push(column);
+      const crown = new mu(0.22, 0.32, 8);
+      xform(crown, [x, 13.99, 26.54]);
+      ivoryGeos.push(crown);
+      const finial = new id(0.055, 8, 6);
+      xform(finial, [x, 14.16, 26.54]);
+      goldGeos.push(finial);
+    }
+    for (let pipe = 0; pipe < 13; pipe += 1) {
+      const f = pipe / 12;
+      const x = centerX + (f - 0.5) * 3.56;
+      const arch = 1 - Math.abs(f - 0.5) * 2;
+      const height = 1.72 + arch * 1.48 + pipe % 2 * 0.12;
+      const baseY = 10.34;
+      const radius = 0.092 + arch * 0.018;
+      const geo = new pu(radius * 0.92, radius, height, 12, 1, false);
+      xform(geo, [x, baseY + height * 0.5, 26.72]);
+      tinGeos.push(geo);
+      const lip = new ks(radius * 1.35, 0.17, 0.035);
+      xform(lip, [x, baseY + 0.38, 26.615]);
+      goldGeos.push(lip);
+      const foot = new pu(radius * 0.62, radius * 0.82, 0.3, 10);
+      xform(foot, [x, baseY - 0.1, 26.72]);
+      tinGeos.push(foot);
+    }
+    for (let panel = 0; panel < 4; panel += 1) {
+      const x = centerX + (panel - 1.5) * 0.93;
+      box2(ivoryGeos, [0.055, 0.62, 0.055], [x, mezzY + 0.47, 26.44]);
+    }
+  }
+  box2(ivoryGeos, [6.5, 0.62, 0.82], [0, mezzY + 0.31, 27.1]);
+  box2(goldGeos, [6.58, 0.045, 0.88], [0, mezzY + 0.65, 27.1]);
+  for (const side of [-1, 1]) {
+    const column = new pu(0.16, 0.2, 2.25, 12);
+    xform(column, [side * 3.48, mezzY + 1.55, 26.65]);
+    ivoryGeos.push(column);
+    const cap = new ks(0.48, 0.16, 0.48);
+    xform(cap, [side * 3.48, mezzY + 2.72, 26.65]);
+    goldGeos.push(cap);
+  }
+  const ivoryGeo = mergeClean(ivoryGeos);
+  const goldGeo = mergeClean(goldGeos);
+  const tinGeo = mergeClean(tinGeos);
+  const navyGeo = mergeClean(navyGeos);
+  const ivoryMesh = new Bs(ivoryGeo, mats.whiteMarbleMat);
+  const goldMesh = new Bs(goldGeo, mats.paleGoldMat);
+  const tinMesh = new Bs(tinGeo, mats.pipeTinMat);
+  const navyMesh = new Bs(navyGeo, mats.navyStoneMat);
+  ivoryMesh.receiveShadow = true;
+  tinMesh.receiveShadow = true;
+  group.add(navyMesh, ivoryMesh, goldMesh, tinMesh);
+  const wireframeMesh = buildOrderedWireframe(
+    mergeClean([ivoryGeo.clone(), goldGeo.clone(), tinGeo.clone(), navyGeo.clone()]),
+    25,
+    9,
+    14.3,
+    0.34,
+    0.52
+  );
+  wireframeMesh.name = "organWireframe";
+  return {
+    group,
+    wireframeMesh,
+    update() {
+    },
+    dispose() {
+    }
+  };
+}
+
 // src/lighting.js
 function createLightingComponent(scene, renderer, mats) {
   const group = new jl();
@@ -14795,13 +14927,9 @@ function createInteriorCollider() {
         const c2 = groundCircles[i];
         pushOutCircle(pos, c2.x, c2.z, c2.r);
       }
-      if (pos.z < 11.65) {
-        if (Math.abs(pos.x) < 10.25) {
-          pos.z = 11.65;
-        } else {
-          pos.x = pos.x >= 0 ? Zn.clamp(pos.x, 10.25, WALL_HALF_X) : Zn.clamp(pos.x, -WALL_HALF_X, -10.25);
-          pos.z = Zn.clamp(pos.z, -15.2, 11.65);
-        }
+      pos.z = Math.max(pos.z, 11.65);
+      if (pos.z > 25.72 && Math.abs(pos.x) > 3.72 && Math.abs(pos.x) < 9.15) {
+        pos.z = 25.72;
       }
       const curDx = pos.x - CX;
       const curDz = pos.z - CZ;
@@ -15499,6 +15627,7 @@ async function init() {
   let veiledPainting = null;
   let pedestals = null;
   let chandeliers = null;
+  let organ = null;
   function applyLoadingVisuals(p01) {
     const p2 = Zn.clamp(p01, 0, 1);
     realLoadProgress = p2;
@@ -15609,6 +15738,7 @@ async function init() {
     veiledPainting?.update(dt2, elapsed);
     pedestals?.update(dt2, elapsed);
     chandeliers?.update(dt2, elapsed, camera);
+    organ?.update(dt2, elapsed);
     lighting.update(dt2, elapsed, camera);
     renderAll();
   }
@@ -15673,6 +15803,14 @@ async function init() {
     {
       weight: 8,
       run: () => {
+        organ = createOrganComponent(mats);
+        solidWorldGroup.add(organ.group);
+        if (organ.wireframeMesh) wireframeGroup.add(organ.wireframeMesh);
+      }
+    },
+    {
+      weight: 8,
+      run: () => {
         lighting.buildEnvironment();
         lighting.buildLightsAndRays();
         solidWorldGroup.add(lighting.group);
@@ -15714,6 +15852,7 @@ async function init() {
     veiledPainting,
     pedestals,
     chandeliers,
+    organ,
     lighting,
     postfx,
     collider

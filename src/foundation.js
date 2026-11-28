@@ -165,18 +165,33 @@ export function createFoundationComponent(mats) {
   const overlookGold = new THREE.BoxGeometry(19.2, 0.045, 0.28);
   xform(overlookGold, [0, MEZZ_Y + 1.04, 10.90]);
   mezzGoldGeos.push(overlookGold);
-  for (let bx = -9; bx <= 9.001; bx += 0.5) {
-    const major = Math.abs(Math.abs(bx) - 2.5) < 0.08 || Math.abs(Math.abs(bx) - 6) < 0.08 || Math.abs(bx) > 8.9;
-    const bal = major
-      ? new THREE.BoxGeometry(0.26, 1.02, 0.28)
-      : new THREE.CylinderGeometry(0.05, 0.062, 0.78, 10);
-    xform(bal, [bx, MEZZ_Y + (major ? 0.51 : 0.52), 10.90]);
-    mezzWhiteGeos.push(bal);
-    if (!major && bx < 8.6) {
-      const arc = new THREE.TorusGeometry(0.22, 0.034, 8, 12, Math.PI);
-      xform(arc, [bx + 0.25, MEZZ_Y + 0.68, 10.90]);
-      mezzWhiteGeos.push(arc);
+  for (let panel = 0; panel < 16; panel += 1) {
+    const centerX = -9 + panel * 1.2;
+    const shape = new THREE.Shape();
+    shape.moveTo(-0.57, 0);
+    shape.lineTo(0.57, 0);
+    shape.lineTo(0.57, 0.82);
+    shape.lineTo(-0.57, 0.82);
+    shape.closePath();
+    for (const offset of [-0.25, 0.25]) {
+      const hole = new THREE.Path();
+      hole.moveTo(offset - 0.17, 0.09);
+      hole.lineTo(offset - 0.17, 0.43);
+      hole.quadraticCurveTo(offset - 0.17, 0.58, offset, 0.70);
+      hole.quadraticCurveTo(offset + 0.17, 0.58, offset + 0.17, 0.43);
+      hole.lineTo(offset + 0.17, 0.09);
+      hole.closePath();
+      shape.holes.push(hole);
     }
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false, curveSegments: 8 });
+    geo.translate(centerX, MEZZ_Y + 0.11, 10.84);
+    applyWorldPlanarUVs(geo, 0.45, 0.45);
+    mezzWhiteGeos.push(geo);
+  }
+  for (let post = 0; post <= 16; post += 1) {
+    const geo = new THREE.BoxGeometry(post % 4 === 0 ? 0.16 : 0.09, 0.92, 0.20);
+    xform(geo, [-9.6 + post * 1.2, MEZZ_Y + 0.52, 10.90]);
+    mezzWhiteGeos.push(geo);
   }
   const mezzWhiteGeo = mergeClean(mezzWhiteGeos);
   const mezzGoldGeo = mergeClean(mezzGoldGeos);

@@ -8,6 +8,7 @@ import { createGothicShellComponent } from './gothicShell.js';
 import { createVeiledPaintingComponent } from './veiledPainting.js';
 import { createPedestalsComponent } from './pedestals.js';
 import { createChandeliersComponent } from './chandeliers.js';
+import { createOrganComponent } from './organ.js';
 import { createLightingComponent } from './lighting.js';
 import { createCathedralPostFX } from './postfx.js';
 import { createInteriorCollider } from './collision.js';
@@ -87,6 +88,7 @@ async function init() {
   let veiledPainting = null;
   let pedestals = null;
   let chandeliers = null;
+  let organ = null;
 
   function applyLoadingVisuals(p01) {
     const p = THREE.MathUtils.clamp(p01, 0, 1);
@@ -209,6 +211,7 @@ async function init() {
     veiledPainting?.update(dt, elapsed);
     pedestals?.update(dt, elapsed);
     chandeliers?.update(dt, elapsed, camera);
+    organ?.update(dt, elapsed);
     lighting.update(dt, elapsed, camera);
 
     renderAll();
@@ -277,6 +280,14 @@ async function init() {
     {
       weight: 8,
       run: () => {
+        organ = createOrganComponent(mats);
+        solidWorldGroup.add(organ.group);
+        if (organ.wireframeMesh) wireframeGroup.add(organ.wireframeMesh);
+      },
+    },
+    {
+      weight: 8,
+      run: () => {
         lighting.buildEnvironment();
         lighting.buildLightsAndRays();
         solidWorldGroup.add(lighting.group);
@@ -323,6 +334,7 @@ async function init() {
     veiledPainting,
     pedestals,
     chandeliers,
+    organ,
     lighting,
     postfx,
     collider,

@@ -279,6 +279,26 @@ export function createSpiralStaircaseComponent(mats) {
   topRingSilver.translate(0, 0.055, 0);
   silverGeos.push(topRingSilver);
 
+  for (const gateAngle of [0.21 * Math.PI, 0.37 * Math.PI]) {
+    const inner = new THREE.Vector3(
+      CX + Math.cos(gateAngle) * (rOuter - 0.10),
+      mezzY + 1.04,
+      CZ + Math.sin(gateAngle) * (rOuter - 0.10)
+    );
+    const outer = new THREE.Vector3(
+      CX + Math.cos(gateAngle) * (rArcade + 0.12),
+      mezzY + 1.04,
+      CZ + Math.sin(gateAngle) * (rArcade + 0.12)
+    );
+    alabasterGeos.push(new THREE.TubeGeometry(new THREE.LineCurve3(inner, outer), 4, 0.085, 10, false));
+    const post = new THREE.CylinderGeometry(0.09, 0.11, 1.04, 10);
+    xform(post, [outer.x, mezzY + 0.52, outer.z]);
+    alabasterGeos.push(post);
+    const cap = new THREE.SphereGeometry(0.11, 10, 8);
+    xform(cap, [outer.x, mezzY + 1.08, outer.z]);
+    silverGeos.push(cap);
+  }
+
   const whiteMerged = mergeClean(whiteGeos);
   const alaMerged = mergeClean(alabasterGeos);
   const obsMerged = mergeClean(trimObsGeos);

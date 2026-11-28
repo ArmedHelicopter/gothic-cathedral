@@ -155,14 +155,12 @@ export function createInteriorCollider() {
         pushOutCircle(pos, c.x, c.z, c.r);
       }
 
-      // Main mezzanine floor + side triforium walkways bounds
-      if (pos.z < 11.65) {
-        if (Math.abs(pos.x) < 10.25) {
-          pos.z = 11.65;
-        } else {
-          pos.x = pos.x >= 0 ? THREE.MathUtils.clamp(pos.x, 10.25, WALL_HALF_X) : THREE.MathUtils.clamp(pos.x, -WALL_HALF_X, -10.25);
-          pos.z = THREE.MathUtils.clamp(pos.z, -15.2, 11.65);
-        }
+      // Organ gallery front parapet; no floating side walkways remain.
+      pos.z = Math.max(pos.z, 11.65);
+
+      // South organ towers leave the central opening and rose-window approach walkable.
+      if (pos.z > 25.72 && Math.abs(pos.x) > 3.72 && Math.abs(pos.x) < 9.15) {
+        pos.z = 25.72;
       }
 
       // Circular stairwell balustrade at radius rArcade except open top exit gate around thetaEnd
