@@ -66,7 +66,7 @@ export function createLightingComponent(scene, renderer, mats) {
     const pmrem = new THREE.PMREMGenerator(renderer);
     const envRT = pmrem.fromScene(envScene, 0.06, 0.1, 100);
     scene.environment = envRT.texture;
-    scene.environmentIntensity = 0.58;
+    scene.environmentIntensity = 0.34;
     envMat.dispose();
     pmrem.dispose();
   }
@@ -110,7 +110,7 @@ export function createLightingComponent(scene, renderer, mats) {
   }
 
   function buildLightsAndRays() {
-    keyLight = new THREE.DirectionalLight('#8FB6E8', 1.85);
+    keyLight = new THREE.DirectionalLight('#C2CDDF', 1.6);
     keyLight.position.set(24, 18.5, 4.5);
     keyLight.target.position.set(-4, 2.5, -2);
     keyLight.castShadow = true;
@@ -124,11 +124,11 @@ export function createLightingComponent(scene, renderer, mats) {
     keyLight.shadow.bias = -0.00045;
     keyLight.shadow.normalBias = 0.036;
     keyLight.shadow.radius = 2.2;
-    keyLight.userData.baseIntensity = 1.85;
+    keyLight.userData.baseIntensity = 1.6;
     group.add(keyLight, keyLight.target);
 
-    hemiLight = new THREE.HemisphereLight('#536FA8', '#0B1430', 0.88);
-    hemiLight.userData.baseIntensity = 0.88;
+    hemiLight = new THREE.HemisphereLight('#7F8798', '#0B1430', 0.62);
+    hemiLight.userData.baseIntensity = 0.62;
     group.add(hemiLight);
 
     paintingSpot = new THREE.SpotLight('#FFE0A3', 165, 38, 0.21, 0.56, 1.12);
@@ -153,10 +153,10 @@ export function createLightingComponent(scene, renderer, mats) {
       [0, 8.35, -11.75],
     ];
     chandelierPositions.forEach((position) => {
-      const light = new THREE.PointLight('#FFC98A', 52, 12, 2);
+      const light = new THREE.PointLight('#FFC98A', 62, 14, 2);
       light.position.set(...position);
       light.castShadow = false;
-      light.userData.baseIntensity = 52;
+      light.userData.baseIntensity = 62;
       chandelierLights.push(light);
       group.add(light);
     });
