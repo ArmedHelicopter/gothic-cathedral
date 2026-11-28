@@ -63,6 +63,24 @@ export function createInteriorCollider() {
     }
   }
 
+  function pushOutBox(pos, minX, maxX, minZ, maxZ) {
+    const ex0 = minX - R_PLAYER;
+    const ex1 = maxX + R_PLAYER;
+    const ez0 = minZ - R_PLAYER;
+    const ez1 = maxZ + R_PLAYER;
+    if (pos.x > ex0 && pos.x < ex1 && pos.z > ez0 && pos.z < ez1) {
+      const dL = pos.x - ex0;
+      const dR = ex1 - pos.x;
+      const dN = pos.z - ez0;
+      const dS = ez1 - pos.z;
+      const m = Math.min(dL, dR, dN, dS);
+      if (m === dL) pos.x = ex0;
+      else if (m === dR) pos.x = ex1;
+      else if (m === dN) pos.z = ez0;
+      else pos.z = ez1;
+    }
+  }
+
   function normalizeAngle2Pi(a) {
     let v = a % (Math.PI * 2);
     if (v < 0) v += Math.PI * 2;
@@ -158,10 +176,11 @@ export function createInteriorCollider() {
       // Organ gallery front parapet; no floating side walkways remain.
       pos.z = Math.max(pos.z, 11.65);
 
-      // South organ towers leave the central opening and rose-window approach walkable.
-      if (pos.z > 25.72 && Math.abs(pos.x) > 3.72 && Math.abs(pos.x) < 9.15) {
-        pos.z = 25.72;
-      }
+      // Organ console + flanking columns block the central opening ahead of the rose window.
+      pushOutBox(pos, -3.72, 3.72, 26.45, 27.55);
+      // Pipe towers on either side.
+      pushOutBox(pos, 4.2, 8.6, 26.35, 27.55);
+      pushOutBox(pos, -8.6, -4.2, 26.35, 27.55);
 
       // Circular stairwell balustrade at radius rArcade except open top exit gate around thetaEnd
       const curDx = pos.x - CX;
