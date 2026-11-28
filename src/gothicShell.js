@@ -347,10 +347,10 @@ export function createGothicShellComponent(mats) {
 
     const bossMat = new THREE.MeshStandardMaterial({
       color: '#C9A961',
-      emissive: '#FFC98A',
-      emissiveIntensity: 0.42,
-      metalness: 0.82,
-      roughness: 0.35,
+      emissive: '#E2BE72',
+      emissiveIntensity: 0.45,
+      metalness: 0.85,
+      roughness: 0.32,
     });
     const bossGeos = [];
     addBoss(bossGeos, 0, APEX_Y - 0.04, zc, 0.35);
@@ -390,7 +390,7 @@ export function createGothicShellComponent(mats) {
       [-3, 0], [-1.15, -0.85], [0, -Math.min(2.4, half * 0.58)], [1.15, -0.85], [3, 0],
     ];
     for (const [x, dz] of starPlan) starPoints.push([x, makeVaultY(x) - 0.025, zc + dz]);
-    tube(ribGeos, starPoints, 0.072, 48, 6);
+    tube(ribGeos, starPoints, 0.11, 48, 6);
   }
 
   for (const z of VAULT_BOUNDARIES) {
@@ -504,7 +504,7 @@ export function createGothicShellComponent(mats) {
   function setBayIllumination(bayIndex, progress) {
     const p = Number.isFinite(progress) ? THREE.MathUtils.clamp(progress, 0, 1) : 0;
     const visual = bayVisuals[bayIndex];
-    if (visual) visual.bossMat.emissiveIntensity = 0.12 + p * 1.65;
+    if (visual) visual.bossMat.emissiveIntensity = 0.20 + p * 0.85;
     const prefixA = `clerestory--1-${bayIndex}`;
     const prefixB = `clerestory-1-${bayIndex}`;
     for (const child of group.children) {

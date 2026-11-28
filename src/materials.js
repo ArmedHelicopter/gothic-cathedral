@@ -54,6 +54,8 @@ export function createCathedralMaterials(textures) {
 
   mats.whiteMarbleMat = standard('#E9E1D0', 0.75, 0, 0.72);
   mats.brightAlabasterMat = standard('#F2EBDD', 0.75, 0, 0.78);
+  mats.brightAlabasterMat.emissive = new THREE.Color('#D8C9A8');
+  mats.brightAlabasterMat.emissiveIntensity = 0.14;
   mats.obsidianMat = standard('#111316', 0.25, 0.04, 1.0);
   mats.matteBasaltMat = standard('#111316', 0.58, 0.02, 0.65);
   mats.navyStoneMat = standard('#12306E', 0.68, 0, 0.65);
