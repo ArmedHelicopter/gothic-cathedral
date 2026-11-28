@@ -70,16 +70,19 @@ export function createFoundationComponent(mats) {
     uniforms: {
       tRefl: { value: reflRT.texture },
       uTexMatrix: { value: texMatrix },
-      uReflStrength: { value: 0.12 },
+      uReflStrength: { value: 0.08 },
       uTint: { value: new THREE.Color('#0B1430') },
+      uCamPos: { value: new THREE.Vector3() },
     },
     vertexShader: `
       uniform mat4 uTexMatrix;
       varying vec4 vReflUv;
       varying vec2 vUv;
+      varying vec3 vWorldPos;
       void main() {
         vUv = uv;
         vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorldPos = wp.xyz;
         vReflUv = uTexMatrix * wp;
         gl_Position = projectionMatrix * viewMatrix * wp;
       }
@@ -88,14 +91,20 @@ export function createFoundationComponent(mats) {
       uniform sampler2D tRefl;
       uniform float uReflStrength;
       uniform vec3 uTint;
+      uniform vec3 uCamPos;
       varying vec4 vReflUv;
       varying vec2 vUv;
+      varying vec3 vWorldPos;
       void main() {
         vec2 uv = vReflUv.xy / max(0.0001, vReflUv.w);
         vec3 refl = texture2D(tRefl, clamp(uv, 0.002, 0.998)).rgb;
         float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x)
                        * smoothstep(0.0, 0.05, vUv.y) * smoothstep(1.0, 0.95, vUv.y);
-        gl_FragColor = vec4(mix(uTint, refl, 0.76), uReflStrength * edgeFade);
+        float dist = length(vWorldPos.xz - uCamPos.xz);
+        float distFade = 1.0 - smoothstep(5.0, 22.0, dist);
+        float rough = smoothstep(3.0, 15.0, dist);
+        vec3 soft = mix(refl, uTint, rough * 0.55);
+        gl_FragColor = vec4(soft, uReflStrength * edgeFade * distFade);
       }
     `,
   });
@@ -208,6 +217,9 @@ export function createFoundationComponent(mats) {
   );
   wireframeMesh.name = 'foundationWireframe';
 
+  const lookDir = new THREE.Vector3();
+  const targetPt = new THREE.Vector3();
+
   function updateReflection(renderer, scene, camera) {
     mirrorMesh.visible = false;
     const planeY = 0.012;
@@ -218,12 +230,13 @@ export function createFoundationComponent(mats) {
     mirrorCam.updateProjectionMatrix();
     mirrorCam.position.copy(camera.position);
     mirrorCam.position.y = 2 * planeY - camera.position.y;
-    const lookDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-    const targetPt = camera.position.clone().add(lookDir);
+    lookDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    targetPt.copy(camera.position).add(lookDir);
     targetPt.y = 2 * planeY - targetPt.y;
     mirrorCam.up.copy(camera.up);
     mirrorCam.up.y *= -1;
     mirrorCam.lookAt(targetPt);
+    mirrorMat.uniforms.uCamPos.value.copy(camera.position);
     mirrorCam.updateMatrixWorld();
     texMatrix.set(
       0.5, 0, 0, 0.5,
