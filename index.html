@@ -11750,6 +11750,8 @@ function createCathedralMaterials(textures) {
   mats.giltBronzeMat = mats.paleGoldMat;
   mats.brassMat = standard("#B08D57", 0.45, 1, 1.1);
   mats.pipeTinMat = standard("#A9ADB3", 0.3, 1, 1.2);
+  mats.pipeTinMat.emissive.set("#536474");
+  mats.pipeTinMat.emissiveIntensity = 0.16;
   mats.marbleBlackMat = standard("#111316", 0.25, 0.02, 1);
   mats.marbleWhiteMat = standard("#ECE9E3", 0.25, 0.01, 0.9);
   mats.floorTrimMat = standard("#0E1B3D", 0.38, 0.08, 0.65);
@@ -11840,7 +11842,7 @@ function createCathedralMaterials(textures) {
       varying vec2 vUv;
       void main() {
         float r = length((vUv - 0.5) * 2.0);
-        float glow = pow(max(0.0001, 1.0 - clamp(r, 0.0, 1.0)), 2.2);
+        float glow = pow(max(0.0001, 1.0 - clamp(r, 0.0, 1.0)), 1.25);
         float alpha = glow * uOpacity;
         if (alpha < 0.004) discard;
         gl_FragColor = vec4(uColor * (1.0 + glow * 0.8), alpha);
@@ -12801,7 +12803,10 @@ function createFoundationComponent(mats) {
   const mezzGoldMesh = new Bs(mezzGoldGeo, mats.paleGoldMat);
   mezzGroup.add(mezzWhiteMesh, mezzGoldMesh);
   wireSourceGeos.push(mezzWhiteGeo.clone(), mezzGoldGeo.clone());
-  const wireframeMesh = buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 0, 10.4, 0.05, 0.42);
+  const wireframeMesh = new Ah(
+    buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 0, 10.4, 0.05, 0.42),
+    mats.wireframeLineMat
+  );
   wireframeMesh.name = "foundationWireframe";
   function updateReflection(renderer, scene, camera) {
     mirrorMesh.visible = false;
@@ -13891,7 +13896,7 @@ function createPedestalsComponent(textures, mats) {
   }
   const sharedClocheGeo = new hu(clocheProfile, 36);
   const poolMat = mats.paleGoldGlowMat.clone();
-  poolMat.uniforms.uOpacity.value = 0.34;
+  poolMat.uniforms.uOpacity.value = 0.78;
   function addMoulding(width, height, depth, y2, px2, pz) {
     const geo = new ks(width, height, depth);
     xform(geo, [px2, y2, pz]);
@@ -14009,13 +14014,16 @@ function createPedestalsComponent(textures, mats) {
   const poolMesh = new Bs(mergeClean(poolGeos), poolMat);
   poolMesh.renderOrder = 2;
   group.add(poolMesh);
-  const wireframeMesh = buildOrderedWireframe(
-    mergeClean([ivoryGeo.clone(), brassGeo.clone(), velvetGeo.clone(), ...wireSourceGeos]),
-    24,
-    0,
-    3,
-    0.4,
-    0.58
+  const wireframeMesh = new Ah(
+    buildOrderedWireframe(
+      mergeClean([ivoryGeo.clone(), brassGeo.clone(), velvetGeo.clone(), ...wireSourceGeos]),
+      24,
+      0,
+      3,
+      0.4,
+      0.58
+    ),
+    mats.wireframeLineMat
   );
   wireframeMesh.name = "pedestalsWireframe";
   let selectedId = null;
@@ -14030,7 +14038,7 @@ function createPedestalsComponent(textures, mats) {
     return { camPos: [...proj.camPos], camTarget: [...proj.camTarget] };
   }
   function setIllumination(progress) {
-    poolMat.uniforms.uOpacity.value = 0.34 * Zn.clamp(progress, 0, 1);
+    poolMat.uniforms.uOpacity.value = 0.78 * Zn.clamp(progress, 0, 1);
   }
   function update(dt2, elapsed) {
     for (let i = 0; i < relicMeshes.length; i += 1) {
@@ -14155,7 +14163,10 @@ function createChandeliersComponent(mats) {
       wireSourceGeos.push(geo);
     });
   });
-  const wireframeMesh = buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 6.5, 24.6, 0.52, 0.96);
+  const wireframeMesh = new Ah(
+    buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 6.5, 24.6, 0.52, 0.96),
+    mats.wireframeLineMat
+  );
   wireframeMesh.name = "chandeliersWireframe";
   const matrix = new sr();
   const scale = new Ci(1, 1, 1);
@@ -14272,13 +14283,16 @@ function createOrganComponent(mats) {
   ivoryMesh.receiveShadow = true;
   tinMesh.receiveShadow = true;
   group.add(navyMesh, ivoryMesh, goldMesh, tinMesh);
-  const wireframeMesh = buildOrderedWireframe(
-    mergeClean([ivoryGeo.clone(), goldGeo.clone(), tinGeo.clone(), navyGeo.clone()]),
-    25,
-    9,
-    14.3,
-    0.34,
-    0.52
+  const wireframeMesh = new Ah(
+    buildOrderedWireframe(
+      mergeClean([ivoryGeo.clone(), goldGeo.clone(), tinGeo.clone(), navyGeo.clone()]),
+      25,
+      9,
+      14.3,
+      0.34,
+      0.52
+    ),
+    mats.wireframeLineMat
   );
   wireframeMesh.name = "organWireframe";
   return {

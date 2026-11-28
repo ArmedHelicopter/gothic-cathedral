@@ -459,7 +459,7 @@ async function init() {
   if (params.get('intro') === '0') {
     cameraRig.finishDiveToExplore();
   } else {
-    // 100% Loaded -> Launch 1.35s Spatial Materialization Wave followed seamlessly by 3.00s FPV Dive!
+    // 100% Loaded -> materialization wave, vault reveal and sequential candle ignition.
     cameraRig.startMaterializeAndDive();
   }
 

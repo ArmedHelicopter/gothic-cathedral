@@ -84,9 +84,12 @@ export function createOrganComponent(mats) {
   ivoryMesh.receiveShadow = true;
   tinMesh.receiveShadow = true;
   group.add(navyMesh, ivoryMesh, goldMesh, tinMesh);
-  const wireframeMesh = buildOrderedWireframe(
-    mergeClean([ivoryGeo.clone(), goldGeo.clone(), tinGeo.clone(), navyGeo.clone()]),
-    25, 9.0, 14.3, 0.34, 0.52
+  const wireframeMesh = new THREE.LineSegments(
+    buildOrderedWireframe(
+      mergeClean([ivoryGeo.clone(), goldGeo.clone(), tinGeo.clone(), navyGeo.clone()]),
+      25, 9.0, 14.3, 0.34, 0.52
+    ),
+    mats.wireframeLineMat
   );
   wireframeMesh.name = 'organWireframe';
 

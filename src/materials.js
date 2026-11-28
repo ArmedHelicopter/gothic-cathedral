@@ -63,6 +63,8 @@ export function createCathedralMaterials(textures) {
   mats.giltBronzeMat = mats.paleGoldMat;
   mats.brassMat = standard('#B08D57', 0.45, 1, 1.1);
   mats.pipeTinMat = standard('#A9ADB3', 0.30, 1, 1.2);
+  mats.pipeTinMat.emissive.set('#536474');
+  mats.pipeTinMat.emissiveIntensity = 0.16;
   mats.marbleBlackMat = standard('#111316', 0.25, 0.02, 1.0);
   mats.marbleWhiteMat = standard('#ECE9E3', 0.25, 0.01, 0.9);
   mats.floorTrimMat = standard('#0E1B3D', 0.38, 0.08, 0.65);
@@ -160,7 +162,7 @@ export function createCathedralMaterials(textures) {
       varying vec2 vUv;
       void main() {
         float r = length((vUv - 0.5) * 2.0);
-        float glow = pow(max(0.0001, 1.0 - clamp(r, 0.0, 1.0)), 2.2);
+        float glow = pow(max(0.0001, 1.0 - clamp(r, 0.0, 1.0)), 1.25);
         float alpha = glow * uOpacity;
         if (alpha < 0.004) discard;
         gl_FragColor = vec4(uColor * (1.0 + glow * 0.8), alpha);

@@ -202,7 +202,10 @@ export function createFoundationComponent(mats) {
   mezzGroup.add(mezzWhiteMesh, mezzGoldMesh);
   wireSourceGeos.push(mezzWhiteGeo.clone(), mezzGoldGeo.clone());
 
-  const wireframeMesh = buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 0, 10.4, 0.05, 0.42);
+  const wireframeMesh = new THREE.LineSegments(
+    buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 0, 10.4, 0.05, 0.42),
+    mats.wireframeLineMat
+  );
   wireframeMesh.name = 'foundationWireframe';
 
   function updateReflection(renderer, scene, camera) {

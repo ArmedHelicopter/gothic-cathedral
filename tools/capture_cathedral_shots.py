@@ -11,15 +11,11 @@ html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'index
 file_url = f'file:///{html_path}?intro=0'
 
 shots = [
-    ('01_loading_wireframe_45pct.png', 'load', 0.45, False),
-    ('02_materialize_wave_52pct.png', 'mat', 0.52, True),
-    ('03_dive_vertical_shaft_mid.png', 'dive', 1.15, True),
-    ('04_sovereign_audience_landing.png', 'preset', 'sovereign', True),
-    ('05_masterpiece_sacred_closeup.png', 'preset', 'masterpiece', True),
-    ('06_mezzanine_overlook_vista.png', 'preset', 'mezzanine', True),
-    ('07_navy_stained_glass_godrays.png', 'preset', 'stainedGlass', True),
-    ('08_spiral_staircase_craft.png', 'preset', 'spiralWell', True),
-    ('09_hud_sovereign_showcase.png', 'preset', 'sovereign', False),
+    ('01_entrance.png', 'preset', 'sovereign', True),
+    ('02_vault_lookup.png', 'camera', ([0.0, 3.2, 4.0], [0.0, 23.0, -4.0], 58), True),
+    ('03_pedestal.png', 'camera', ([3.05, 2.2, 16.35], [5.6, 1.72, 14.5], 40), True),
+    ('04_organ_gallery_lookback.png', 'preset', 'mezzanine', True),
+    ('05_veiled_painting.png', 'preset', 'masterpiece', True),
 ]
 
 console_errors = []
@@ -31,7 +27,7 @@ with sync_playwright() as p:
         args=['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'],
     )
     page = browser.new_page(viewport={'width': 1440, 'height': 900})
-    page.on('console', lambda msg: console_errors.append(msg.text) if msg.type == 'error' else None)
+    page.on('console', lambda msg: console_errors.append(f'{msg.text} @ {msg.location}') if msg.type == 'error' else None)
     page.on('pageerror', lambda err: console_errors.append(str(err)))
     page.on(
         'request',
@@ -61,6 +57,9 @@ with sync_playwright() as p:
             page.evaluate(f'() => window.__CATHEDRAL_DEBUG__.setMaterializeProgress({arg}, {{ hideUi: {hide_js} }})')
         elif mode == 'dive':
             page.evaluate(f'() => window.__CATHEDRAL_DEBUG__.setDiveTime({arg}, {{ hideUi: {hide_js} }})')
+        elif mode == 'camera':
+            pos, target, fov = arg
+            page.evaluate(f'() => window.__CATHEDRAL_DEBUG__.setCamera({list(pos)}, {list(target)}, {{ hideUi: {hide_js}, fov: {fov} }})')
         else:
             page.evaluate(f"() => window.__CATHEDRAL_DEBUG__.goToPreset('{arg}', {{ hideUi: {hide_js} }})")
         time.sleep(0.35)

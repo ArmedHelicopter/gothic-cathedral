@@ -105,7 +105,10 @@ export function createChandeliersComponent(mats) {
     });
   });
 
-  const wireframeMesh = buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 6.5, 24.6, 0.52, 0.96);
+  const wireframeMesh = new THREE.LineSegments(
+    buildOrderedWireframe(mergeClean(wireSourceGeos), 28, 6.5, 24.6, 0.52, 0.96),
+    mats.wireframeLineMat
+  );
   wireframeMesh.name = 'chandeliersWireframe';
   const matrix = new THREE.Matrix4();
   const scale = new THREE.Vector3(1, 1, 1);

@@ -34,7 +34,7 @@ export function createPedestalsComponent(textures, mats) {
   }
   const sharedClocheGeo = new THREE.LatheGeometry(clocheProfile, 36);
   const poolMat = mats.paleGoldGlowMat.clone();
-  poolMat.uniforms.uOpacity.value = 0.34;
+  poolMat.uniforms.uOpacity.value = 0.78;
 
   function addMoulding(width, height, depth, y, px, pz) {
     const geo = new THREE.BoxGeometry(width, height, depth);
@@ -168,9 +168,12 @@ export function createPedestalsComponent(textures, mats) {
   const poolMesh = new THREE.Mesh(mergeClean(poolGeos), poolMat);
   poolMesh.renderOrder = 2;
   group.add(poolMesh);
-  const wireframeMesh = buildOrderedWireframe(
-    mergeClean([ivoryGeo.clone(), brassGeo.clone(), velvetGeo.clone(), ...wireSourceGeos]),
-    24, 0, 3, 0.40, 0.58
+  const wireframeMesh = new THREE.LineSegments(
+    buildOrderedWireframe(
+      mergeClean([ivoryGeo.clone(), brassGeo.clone(), velvetGeo.clone(), ...wireSourceGeos]),
+      24, 0, 3, 0.40, 0.58
+    ),
+    mats.wireframeLineMat
   );
   wireframeMesh.name = 'pedestalsWireframe';
 
@@ -186,7 +189,7 @@ export function createPedestalsComponent(textures, mats) {
     return { camPos: [...proj.camPos], camTarget: [...proj.camTarget] };
   }
   function setIllumination(progress) {
-    poolMat.uniforms.uOpacity.value = 0.34 * THREE.MathUtils.clamp(progress, 0, 1);
+    poolMat.uniforms.uOpacity.value = 0.78 * THREE.MathUtils.clamp(progress, 0, 1);
   }
   function update(dt, elapsed) {
     for (let i = 0; i < relicMeshes.length; i += 1) {
