@@ -11392,22 +11392,29 @@ function createCathedralTextures(renderer) {
     const H2 = 256;
     const c2 = makeCanvas(W2, H2);
     const ctx = c2.getContext("2d");
-    ctx.fillStyle = "#0c1833";
+    const brass = ctx.createLinearGradient(0, 0, 0, H2);
+    brass.addColorStop(0, "#C29A63");
+    brass.addColorStop(0.5, "#B08D57");
+    brass.addColorStop(1, "#9A7847");
+    ctx.fillStyle = brass;
     ctx.fillRect(0, 0, W2, H2);
-    ctx.strokeStyle = "#c4d6f4";
+    ctx.strokeStyle = "#7A5C36";
     ctx.lineWidth = 7;
     ctx.strokeRect(8, 8, W2 - 16, H2 - 16);
-    ctx.strokeStyle = "#3b5fa6";
+    ctx.strokeStyle = "#8A6B40";
     ctx.lineWidth = 2.5;
     ctx.strokeRect(20, 20, W2 - 40, H2 - 40);
-    ctx.fillStyle = "#99bbea";
-    ctx.font = '700 32px "JetBrains Mono", Consolas, monospace';
-    ctx.textAlign = "center";
-    ctx.fillText(`NO.${project.index} \xB7 ${project.lang.toUpperCase()}`, W2 / 2, 86);
-    ctx.fillStyle = "#dde7fa";
+    const drawEngraved = (label, x, y2, font, fill) => {
+      ctx.font = font;
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(90, 66, 38, 0.85)";
+      ctx.fillText(label, x, y2 + 2);
+      ctx.fillStyle = fill;
+      ctx.fillText(label, x, y2);
+    };
+    drawEngraved(`NO.${project.index} \xB7 ${project.lang.toUpperCase()}`, W2 / 2, 86, '700 32px "JetBrains Mono", Consolas, monospace', "#F7EFDF");
     const fontSize = project.name.length > 20 ? 44 : project.name.length > 14 ? 54 : 64;
-    ctx.font = `700 ${fontSize}px Inter, "PingFang SC", system-ui, sans-serif`;
-    ctx.fillText(project.name, W2 / 2, 180);
+    drawEngraved(project.name, W2 / 2, 180, `700 ${fontSize}px Inter, "PingFang SC", system-ui, sans-serif`, "#F2EBDD");
     return register(`plaque-${project.id}`, c2, { wrap: false, pixel: false, mip: true });
   }
   function projectIcon(project) {
@@ -11741,6 +11748,8 @@ function createCathedralMaterials(textures) {
   const standard = (color, roughness, metalness = 0, envMapIntensity = 0.8) => new pd({ color, roughness, metalness, envMapIntensity });
   mats.whiteMarbleMat = standard("#E9E1D0", 0.75, 0, 0.72);
   mats.brightAlabasterMat = standard("#F2EBDD", 0.75, 0, 0.78);
+  mats.brightAlabasterMat.emissive = new Kr("#D8C9A8");
+  mats.brightAlabasterMat.emissiveIntensity = 0.14;
   mats.obsidianMat = standard("#111316", 0.25, 0.04, 1);
   mats.matteBasaltMat = standard("#111316", 0.58, 0.02, 0.65);
   mats.navyStoneMat = standard("#12306E", 0.68, 0, 0.65);
@@ -12675,16 +12684,19 @@ function createFoundationComponent(mats) {
     uniforms: {
       tRefl: { value: reflRT.texture },
       uTexMatrix: { value: texMatrix },
-      uReflStrength: { value: 0.12 },
-      uTint: { value: new Kr("#0B1430") }
+      uReflStrength: { value: 0.08 },
+      uTint: { value: new Kr("#0B1430") },
+      uCamPos: { value: new Ci() }
     },
     vertexShader: `
       uniform mat4 uTexMatrix;
       varying vec4 vReflUv;
       varying vec2 vUv;
+      varying vec3 vWorldPos;
       void main() {
         vUv = uv;
         vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorldPos = wp.xyz;
         vReflUv = uTexMatrix * wp;
         gl_Position = projectionMatrix * viewMatrix * wp;
       }
@@ -12693,14 +12705,20 @@ function createFoundationComponent(mats) {
       uniform sampler2D tRefl;
       uniform float uReflStrength;
       uniform vec3 uTint;
+      uniform vec3 uCamPos;
       varying vec4 vReflUv;
       varying vec2 vUv;
+      varying vec3 vWorldPos;
       void main() {
         vec2 uv = vReflUv.xy / max(0.0001, vReflUv.w);
         vec3 refl = texture2D(tRefl, clamp(uv, 0.002, 0.998)).rgb;
         float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x)
                        * smoothstep(0.0, 0.05, vUv.y) * smoothstep(1.0, 0.95, vUv.y);
-        gl_FragColor = vec4(mix(uTint, refl, 0.76), uReflStrength * edgeFade);
+        float dist = length(vWorldPos.xz - uCamPos.xz);
+        float distFade = 1.0 - smoothstep(5.0, 22.0, dist);
+        float rough = smoothstep(3.0, 15.0, dist);
+        vec3 soft = mix(refl, uTint, rough * 0.55);
+        gl_FragColor = vec4(soft, uReflStrength * edgeFade * distFade);
       }
     `
   });
@@ -12808,6 +12826,8 @@ function createFoundationComponent(mats) {
     mats.wireframeLineMat
   );
   wireframeMesh.name = "foundationWireframe";
+  const lookDir = new Ci();
+  const targetPt = new Ci();
   function updateReflection(renderer, scene, camera) {
     mirrorMesh.visible = false;
     const planeY = 0.012;
@@ -12818,12 +12838,13 @@ function createFoundationComponent(mats) {
     mirrorCam.updateProjectionMatrix();
     mirrorCam.position.copy(camera.position);
     mirrorCam.position.y = 2 * planeY - camera.position.y;
-    const lookDir = new Ci(0, 0, -1).applyQuaternion(camera.quaternion);
-    const targetPt = camera.position.clone().add(lookDir);
+    lookDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    targetPt.copy(camera.position).add(lookDir);
     targetPt.y = 2 * planeY - targetPt.y;
     mirrorCam.up.copy(camera.up);
     mirrorCam.up.y *= -1;
     mirrorCam.lookAt(targetPt);
+    mirrorMat.uniforms.uCamPos.value.copy(camera.position);
     mirrorCam.updateMatrixWorld();
     texMatrix.set(
       0.5,
@@ -13208,10 +13229,10 @@ function createGothicShellComponent(mats) {
     for (const side of [-1, 1]) webGeos.push(makeAisleWeb(side, zA, zB));
     const bossMat = new pd({
       color: "#C9A961",
-      emissive: "#FFC98A",
-      emissiveIntensity: 0.42,
-      metalness: 0.82,
-      roughness: 0.35
+      emissive: "#E2BE72",
+      emissiveIntensity: 0.45,
+      metalness: 0.85,
+      roughness: 0.32
     });
     const bossGeos = [];
     addBoss(bossGeos, 0, APEX_Y - 0.04, zc2, 0.35);
@@ -13260,7 +13281,7 @@ function createGothicShellComponent(mats) {
       [3, 0]
     ];
     for (const [x, dz] of starPlan) starPoints.push([x, makeVaultY(x) - 0.025, zc2 + dz]);
-    tube(ribGeos, starPoints, 0.072, 48, 6);
+    tube(ribGeos, starPoints, 0.11, 48, 6);
   }
   for (const z2 of VAULT_BOUNDARIES) {
     const ribs = buildPointedArchRib({
@@ -13365,9 +13386,9 @@ function createGothicShellComponent(mats) {
   const wireframeMesh = new Ah(wireGeo, mats.wireframeLineMat);
   wireframeMesh.name = "perpendicularGothicWireframe";
   function setBayIllumination(bayIndex, progress) {
-    const p2 = Zn.clamp(progress, 0, 1);
+    const p2 = Number.isFinite(progress) ? Zn.clamp(progress, 0, 1) : 0;
     const visual = bayVisuals[bayIndex];
-    if (visual) visual.bossMat.emissiveIntensity = 0.12 + p2 * 1.65;
+    if (visual) visual.bossMat.emissiveIntensity = 0.2 + p2 * 0.85;
     const prefixA = `clerestory--1-${bayIndex}`;
     const prefixB = `clerestory-1-${bayIndex}`;
     for (const child of group.children) {
@@ -13912,10 +13933,10 @@ function createPedestalsComponent(textures, mats) {
     addMoulding(1.12, 0.12, 1.12, 0.06, px2, pz);
     addMoulding(1, 0.1, 1, 0.17, px2, pz);
     addMoulding(0.9, 0.08, 0.9, 0.26, px2, pz);
-    addMoulding(0.78, 0.84, 0.78, 0.73, px2, pz);
-    addMoulding(0.88, 0.1, 0.88, 1.18, px2, pz);
-    addMoulding(1, 0.1, 1, 1.28, px2, pz);
-    addMoulding(1.08, 0.12, 1.08, 1.44, px2, pz);
+    addMoulding(0.78, 0.86, 0.78, 0.73, px2, pz);
+    addMoulding(0.88, 0.1, 0.88, 1.21, px2, pz);
+    addMoulding(1, 0.1, 1, 1.31, px2, pz);
+    addMoulding(1.08, 0.14, 1.08, 1.43, px2, pz);
     for (let face = 0; face < 4; face += 1) {
       const angle = face * Math.PI * 0.5;
       const normal = new Ci(Math.sin(angle), 0, Math.cos(angle));
@@ -13950,30 +13971,27 @@ function createPedestalsComponent(textures, mats) {
     brassGeos.push(finial);
     const plaqueTex = textures.plaqueLabel(proj);
     const plaqueMat = new pd({
+      color: "#B08D57",
       map: plaqueTex,
       emissiveMap: plaqueTex,
       emissive: new Kr("#C9A961"),
-      emissiveIntensity: 0.24,
-      roughness: 0.42,
-      metalness: 0.28,
-      envMapIntensity: 0.75
+      emissiveIntensity: 0.3,
+      roughness: 0.45,
+      metalness: 1,
+      envMapIntensity: 1
     });
     const plaque = new jl();
-    const plaqueBackGeo = new ks(1.04, 0.37, 0.055);
+    const plaqueBackGeo = new ks(1.04, 0.4, 0.045);
     const plaqueBack = new Bs(plaqueBackGeo, mats.brassMat);
-    const plaqueFace = new Bs(new ha(0.94, 0.29), plaqueMat);
-    plaqueFace.position.z = 0.03;
+    const plaqueFace = new Bs(new ha(0.96, 0.32), plaqueMat);
+    plaqueFace.position.z = 0.026;
     plaque.add(plaqueBack, plaqueFace);
-    const dirToAxis = new Ci(-sign * 0.94, 0, 0.34).normalize();
-    plaque.position.set(px2 + dirToAxis.x * 0.48, 0.8, pz + dirToAxis.z * 0.48);
-    plaque.lookAt(plaque.position.clone().add(dirToAxis));
-    plaque.rotateX(-0.2);
+    plaque.position.set(px2 - sign * 0.435, 0.92, pz);
+    plaque.rotation.y = -sign * Math.PI * 0.5;
+    plaque.rotation.x = -0.22;
     plaquesGroup.add(plaque);
     plaque.updateMatrixWorld(true);
     wireSourceGeos.push(plaqueBackGeo.clone().applyMatrix4(plaque.matrixWorld));
-    const bracket = new ks(0.16, 0.2, 0.16);
-    xform(bracket, [px2 + dirToAxis.x * 0.35, 0.73, pz + dirToAxis.z * 0.35]);
-    brassGeos.push(bracket);
     const relicHolder = createProjectIconSculpture(proj.iconKind, mats);
     relicHolder.scale.setScalar(1.14);
     relicHolder.position.set(px2, PEDESTAL_TOP_Y + 0.42, pz);
@@ -14369,7 +14387,7 @@ function createLightingComponent(scene, renderer, mats) {
     const pmrem = new Na(renderer);
     const envRT = pmrem.fromScene(envScene, 0.06, 0.1, 100);
     scene.environment = envRT.texture;
-    scene.environmentIntensity = 0.58;
+    scene.environmentIntensity = 0.34;
     envMat.dispose();
     pmrem.dispose();
   }
@@ -14410,7 +14428,7 @@ function createLightingComponent(scene, renderer, mats) {
     group.add(mesh);
   }
   function buildLightsAndRays() {
-    keyLight = new mp("#8FB6E8", 1.85);
+    keyLight = new mp("#C2CDDF", 1.6);
     keyLight.position.set(24, 18.5, 4.5);
     keyLight.target.position.set(-4, 2.5, -2);
     keyLight.castShadow = true;
@@ -14424,10 +14442,10 @@ function createLightingComponent(scene, renderer, mats) {
     keyLight.shadow.bias = -45e-5;
     keyLight.shadow.normalBias = 0.036;
     keyLight.shadow.radius = 2.2;
-    keyLight.userData.baseIntensity = 1.85;
+    keyLight.userData.baseIntensity = 1.6;
     group.add(keyLight, keyLight.target);
-    hemiLight = new ep("#536FA8", "#0B1430", 0.88);
-    hemiLight.userData.baseIntensity = 0.88;
+    hemiLight = new ep("#7F8798", "#0B1430", 0.62);
+    hemiLight.userData.baseIntensity = 0.62;
     group.add(hemiLight);
     paintingSpot = new op("#FFE0A3", 165, 38, 0.21, 0.56, 1.12);
     paintingSpot.position.set(0, 23, -17.2);
@@ -14449,10 +14467,10 @@ function createLightingComponent(scene, renderer, mats) {
       [0, 8.35, -11.75]
     ];
     chandelierPositions.forEach((position) => {
-      const light = new dp("#FFC98A", 52, 12, 2);
+      const light = new dp("#FFC98A", 62, 14, 2);
       light.position.set(...position);
       light.castShadow = false;
-      light.userData.baseIntensity = 52;
+      light.userData.baseIntensity = 62;
       chandelierLights.push(light);
       group.add(light);
     });
@@ -14582,7 +14600,7 @@ function createLightingComponent(scene, renderer, mats) {
       components.pedestals.setIllumination(state.pools);
     }
     if (components.gothicShell) {
-      const bayProgress = [0, 1, 6, 7].map(() => Math.max(0.04, state.ambient * 0.42));
+      const bayProgress = Array.from({ length: 8 }, () => Math.max(0.04, state.ambient * 0.42));
       bayProgress[2] = Math.max(state.ambient * 0.1, state.lamps[0]);
       bayProgress[3] = Math.max(state.ambient * 0.1, state.lamps[1]);
       bayProgress[4] = Math.max(state.ambient * 0.1, state.lamps[2]);
@@ -14897,6 +14915,23 @@ function createInteriorCollider() {
       }
     }
   }
+  function pushOutBox(pos, minX, maxX, minZ, maxZ) {
+    const ex0 = minX - R_PLAYER;
+    const ex1 = maxX + R_PLAYER;
+    const ez0 = minZ - R_PLAYER;
+    const ez1 = maxZ + R_PLAYER;
+    if (pos.x > ex0 && pos.x < ex1 && pos.z > ez0 && pos.z < ez1) {
+      const dL = pos.x - ex0;
+      const dR = ex1 - pos.x;
+      const dN = pos.z - ez0;
+      const dS = ez1 - pos.z;
+      const m = Math.min(dL, dR, dN, dS);
+      if (m === dL) pos.x = ex0;
+      else if (m === dR) pos.x = ex1;
+      else if (m === dN) pos.z = ez0;
+      else pos.z = ez1;
+    }
+  }
   function normalizeAngle2Pi(a) {
     let v = a % (Math.PI * 2);
     if (v < 0) v += Math.PI * 2;
@@ -14969,9 +15004,9 @@ function createInteriorCollider() {
         pushOutCircle(pos, c2.x, c2.z, c2.r);
       }
       pos.z = Math.max(pos.z, 11.65);
-      if (pos.z > 25.72 && Math.abs(pos.x) > 3.72 && Math.abs(pos.x) < 9.15) {
-        pos.z = 25.72;
-      }
+      pushOutBox(pos, -3.72, 3.72, 26.45, 27.55);
+      pushOutBox(pos, 4.2, 8.6, 26.35, 27.55);
+      pushOutBox(pos, -8.6, -4.2, 26.35, 27.55);
       const curDx = pos.x - CX;
       const curDz = pos.z - CZ;
       const curR = Math.hypot(curDx, curDz);
