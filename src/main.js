@@ -259,6 +259,7 @@ async function init() {
       run: () => {
         pedestals = createPedestalsComponent(textures, mats);
         solidWorldGroup.add(pedestals.group);
+        if (pedestals.wireframeMesh) wireframeGroup.add(pedestals.wireframeMesh);
         textures.uploadAllToGPU(renderer);
       },
     },

@@ -34,7 +34,7 @@ export const PROJECTS = [
     subtitle: 'Every agent’s model. One place.',
     lang: 'Go',
     side: 'left',
-    bayZ: 5.5,
+    bayZ: 14.5,
     iconKind: 'magpie-real',
     hasRealIcon: true,
     description:
@@ -49,7 +49,7 @@ export const PROJECTS = [
     subtitle: 'Fail-Closed Account Isolation',
     lang: 'PowerShell / Swift',
     side: 'left',
-    bayZ: 0.0,
+    bayZ: 7.0,
     iconKind: 'claude-switcher-real',
     hasRealIcon: true,
     description:
@@ -64,7 +64,7 @@ export const PROJECTS = [
     subtitle: 'Unified Agent Memory Workspace',
     lang: 'Rust',
     side: 'left',
-    bayZ: -5.5,
+    bayZ: -0.5,
     iconKind: 'sivtr-real',
     hasRealIcon: true,
     description:
@@ -79,7 +79,7 @@ export const PROJECTS = [
     subtitle: 'Desktop GUI & Auto-Configurator',
     lang: 'Rust / Tauri',
     side: 'left',
-    bayZ: -11.0,
+    bayZ: -8.0,
     iconKind: 'easycliproxy-real',
     hasRealIcon: true,
     description:
@@ -94,7 +94,7 @@ export const PROJECTS = [
     subtitle: 'WHU 2.5D Interactive Diorama',
     lang: 'Three.js',
     side: 'left',
-    bayZ: -16.0,
+    bayZ: -15.5,
     iconKind: 'whu-archway-real',
     hasRealIcon: true,
     description:
@@ -109,7 +109,7 @@ export const PROJECTS = [
     subtitle: 'Separation-of-Powers for Research Agents',
     lang: 'Python',
     side: 'right',
-    bayZ: 5.5,
+    bayZ: 14.5,
     iconKind: 'research-loop-emblem',
     hasRealIcon: false,
     description:
@@ -124,7 +124,7 @@ export const PROJECTS = [
     subtitle: 'Deterministic AI4S Middleware',
     lang: 'TypeScript',
     side: 'right',
-    bayZ: 0.0,
+    bayZ: 7.0,
     iconKind: 'ai4s-gate-emblem',
     hasRealIcon: false,
     description:
@@ -139,7 +139,7 @@ export const PROJECTS = [
     subtitle: 'Block-Hankel MSSA Audio Restoration',
     lang: 'Python',
     side: 'right',
-    bayZ: -5.5,
+    bayZ: -0.5,
     iconKind: 'hankel-emblem',
     hasRealIcon: false,
     description:
@@ -154,7 +154,7 @@ export const PROJECTS = [
     subtitle: '1881 Tangxu Railway Scrollytelling',
     lang: 'HTML',
     side: 'right',
-    bayZ: -11.0,
+    bayZ: -8.0,
     iconKind: 'self-study-emblem',
     hasRealIcon: false,
     description:
@@ -169,7 +169,7 @@ export const PROJECTS = [
     subtitle: 'Browser PKCE Auth & Model Catalog',
     lang: 'JavaScript',
     side: 'right',
-    bayZ: -16.0,
+    bayZ: -15.5,
     iconKind: 'opencode-auth-emblem',
     hasRealIcon: false,
     description:
@@ -178,3 +178,9 @@ export const PROJECTS = [
     url: 'https://github.com/ArmedHelicopter/opencode-meoo-auth',
   },
 ];
+
+PROJECTS.forEach((project) => {
+  const sign = project.side === 'left' ? -1 : 1;
+  project.camPos = [sign * (5.6 - 2.55), 2.20, project.bayZ + 1.85];
+  project.camTarget = [sign * 5.6, 1.72, project.bayZ];
+});
